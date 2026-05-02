@@ -44,6 +44,12 @@ pub fn build_plan(inputs: &LaunchInputs<'_>) -> Result<LaunchPlan> {
 }
 
 /// 构建 classpath：所有满足规则的非 native library 的 jar 路径，附加 client.jar。
+///
+/// 但对于 modern Forge / NeoForge（1.17+，main_class 含 `BootstrapLauncher`），
+/// vanilla `client.jar` 必须**排除**——libraries 里已有 processor 生成的 patched
+/// client (`:client` classifier) 与 client-extra (`:client-extra`)，把 vanilla
+/// 也加进去会导致 Java 模块系统检测到两个 module 同时 export 同一个 package
+/// (`com.mojang.blaze3d.systems` 等),抛 `ResolutionException` 启动直接挂掉。
 #[must_use]
 pub fn build_classpath(
     manifest: &ResolvedManifest,
@@ -58,9 +64,18 @@ pub fn build_classpath(
             }
         }
     }
-    entries.push(paths.client_jar().to_string_lossy().into_owned());
+    if !uses_module_loader(&manifest.main_class) {
+        entries.push(paths.client_jar().to_string_lossy().into_owned());
+    }
     let sep = if cfg!(windows) { ";" } else { ":" };
     entries.join(sep)
+}
+
+/// 检测 main_class 是否属于 Forge / NeoForge 的 BootstrapLauncher 家族
+/// （Java 模块系统驱动的加载器）。
+fn uses_module_loader(main_class: &str) -> bool {
+    let lc = main_class.to_ascii_lowercase();
+    lc.contains("bootstraplauncher")
 }
 
 /// 把 `[Argument]` 列表压平为字符串序列（评估 rules + 替换占位符）。
@@ -160,6 +175,20 @@ fn build_placeholders(inputs: &LaunchInputs<'_>, classpath: &str) -> HashMap<Str
     // 启动器自身标识
     vars.insert("launcher_name".into(), "Nova-Craft-Launcher".into());
     vars.insert("launcher_version".into(), env!("CARGO_PKG_VERSION").into());
+
+    // Forge / NeoForge 占位符:BootstrapLauncher 的 -DignoreList 模板会引用
+    // `${MC_JAR_NAME}` 来定位需要从模块路径排除的 vanilla client.jar 文件名。
+    // 我们把它指向 paths.client_jar() 实际的文件名 (即 <merged_id>.jar)。
+    let mc_jar_name = paths
+        .client_jar()
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| format!("{}.jar", manifest.id));
+    vars.insert("MC_JAR_NAME".into(), mc_jar_name);
+
+    // 在线认证占位符 (离线模式填空字符串而非保留 `${clientid}` 字面量)
+    vars.insert("clientid".into(), String::new());
+    vars.insert("auth_xuid".into(), String::new());
 
     vars
 }
@@ -344,8 +373,96 @@ mod tests {
         assert!(cp.contains("lwjgl-3.3.3.jar"), "classpath was: {cp}");
         // 新格式 native jar 不能在 classpath
         assert!(!cp.contains("natives-windows"), "classpath was: {cp}");
-        // client.jar 在
+        // 普通 vanilla launch (mainClass=net.minecraft...): client.jar 在
         assert!(cp.contains("1.21.1.jar"), "classpath was: {cp}");
+    }
+
+    #[test]
+    fn classpath_excludes_client_jar_for_bootstraplauncher() {
+        let layout = PathLayout::with_root("/tmp/ncl".into());
+        let paths = InstallPaths::new(&layout, "test", "neoforge-21.1.99");
+        let mut manifest = fake_manifest();
+        // 模拟 NeoForge / Forge 1.17+ 的 main class
+        manifest.main_class = "cpw.mods.bootstraplauncher.BootstrapLauncher".into();
+        let ctx = EvalContext::default();
+        let cp = build_classpath(&manifest, &ctx, &paths);
+
+        // BootstrapLauncher 风格:vanilla client.jar 不能在 classpath
+        // (避免与 libraries 里的 patched client 在 module 层冲突)
+        assert!(
+            !cp.contains("neoforge-21.1.99.jar"),
+            "classpath should NOT contain vanilla client jar for BootstrapLauncher; was: {cp}"
+        );
+        // 库正常包含
+        assert!(cp.contains("lwjgl-3.3.3.jar"), "classpath was: {cp}");
+    }
+
+    #[test]
+    fn placeholders_include_mc_jar_name_and_offline_auth_blanks() {
+        let layout = PathLayout::with_root("/tmp/ncl".into());
+        let paths = InstallPaths::new(&layout, "test-instance", "neoforge-21.1.99");
+
+        // 模拟 NeoForge 风格的 manifest:arguments.jvm 含
+        // `-DignoreList=...,${MC_JAR_NAME}`,arguments.game 含 `${clientid}`
+        let mut manifest = fake_manifest();
+        manifest.arguments.jvm = vec![
+            Argument::Plain("-DignoreList=client-extra.jar,${MC_JAR_NAME}".into()),
+            Argument::Plain("-cp".into()),
+            Argument::Plain("${classpath}".into()),
+        ];
+        manifest.arguments.game = vec![
+            Argument::Plain("--clientId".into()),
+            Argument::Plain("${clientid}".into()),
+            Argument::Plain("--xuid".into()),
+            Argument::Plain("${auth_xuid}".into()),
+        ];
+        manifest.id = "neoforge-21.1.99".into();
+
+        let java = fake_java();
+        let account = AccountInfo::offline("PlayerOne");
+        let inputs = LaunchInputs {
+            manifest: &manifest,
+            paths: &paths,
+            java: &java,
+            account: &account,
+            memory: MemorySpec {
+                min_mb: 512,
+                max_mb: 4096,
+            },
+            jvm_args_extra: vec![],
+            game_args_extra: vec![],
+            features: HashMap::new(),
+        };
+        let plan = build_plan(&inputs).unwrap();
+
+        // ${MC_JAR_NAME} 应被替换为 <merged_id>.jar
+        let ignore_arg = plan
+            .jvm_args
+            .iter()
+            .find(|a| a.starts_with("-DignoreList="))
+            .expect("ignoreList present");
+        assert!(
+            ignore_arg.contains("neoforge-21.1.99.jar"),
+            "ignoreList should resolve MC_JAR_NAME; was: {ignore_arg}"
+        );
+        assert!(
+            !ignore_arg.contains("${"),
+            "MC_JAR_NAME should not remain unresolved; was: {ignore_arg}"
+        );
+
+        // ${clientid} / ${auth_xuid} 应被替换为空字符串
+        let cid_idx = plan
+            .game_args
+            .iter()
+            .position(|a| a == "--clientId")
+            .expect("clientId arg");
+        assert_eq!(plan.game_args[cid_idx + 1], "");
+        let xuid_idx = plan
+            .game_args
+            .iter()
+            .position(|a| a == "--xuid")
+            .expect("xuid arg");
+        assert_eq!(plan.game_args[xuid_idx + 1], "");
     }
 
     #[test]
