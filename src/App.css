@@ -1,15 +1,74 @@
+/* ============================================================================
+ * Nova Craft Launcher — Design System
+ * Apple-inspired (photography-first, single Action Blue accent, edge-to-edge tiles)
+ * 完整 token 表见 ../DESIGN.md
+ * ========================================================================== */
+
 :root {
-  font-family: "Segoe UI", Inter, Avenir, Helvetica, Arial, sans-serif;
-  font-size: 14px;
-  line-height: 1.6;
+  /* ── Colors ─────────────────────────────────────────────────────────── */
+  --primary: #0066cc;
+  --primary-focus: #0071e3;
+  --primary-on-dark: #2997ff;
 
-  color: #1a1a1f;
-  background-color: #f6f6f6;
+  --ink: #1d1d1f;
+  --body: #1d1d1f;
+  --body-on-dark: #ffffff;
+  --body-muted: #cccccc;
+  --ink-muted-80: #333333;
+  --ink-muted-48: #7a7a7a;
 
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --divider-soft: #f0f0f0;
+  --hairline: #e0e0e0;
+
+  --canvas: #ffffff;
+  --canvas-parchment: #f5f5f7;
+  --surface-pearl: #fafafc;
+  --surface-tile-1: #272729;
+  --surface-tile-2: #2a2a2c;
+  --surface-tile-3: #252527;
+  --surface-black: #000000;
+  --surface-chip-translucent: rgba(210, 210, 215, 0.64);
+
+  --on-primary: #ffffff;
+  --on-dark: #ffffff;
+
+  /* ── Typography fallback stack ──────────────────────────────────────── */
+  --font-display:
+    -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Inter,
+    system-ui, sans-serif;
+  --font-text:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Inter,
+    system-ui, sans-serif;
+  --font-mono:
+    "SF Mono", "Cascadia Mono", "JetBrains Mono", Consolas, monospace;
+
+  /* ── Radii ─────────────────────────────────────────────────────────── */
+  --r-none: 0px;
+  --r-xs: 5px;
+  --r-sm: 8px;
+  --r-md: 11px;
+  --r-lg: 18px;
+  --r-pill: 9999px;
+
+  /* ── Spacing ───────────────────────────────────────────────────────── */
+  --sp-xxs: 4px;
+  --sp-xs: 8px;
+  --sp-sm: 12px;
+  --sp-md: 17px;
+  --sp-lg: 24px;
+  --sp-xl: 32px;
+  --sp-xxl: 48px;
+  --sp-section: 80px;
+
+  /* ── Heights ────────────────────────────────────────────────────────── */
+  --nav-global-h: 44px;
+  --nav-sub-h: 52px;
+
+  /* ── Single product shadow (DESIGN.md: only one shadow exists) ──────── */
+  --product-shadow: rgba(0, 0, 0, 0.22) 3px 5px 30px 0;
 }
 
+/* ── Reset ────────────────────────────────────────────────────────────── */
 * {
   box-sizing: border-box;
 }
@@ -22,54 +81,463 @@ body,
   height: 100%;
 }
 
-h1 {
-  font-size: 24px;
-  margin: 0 0 16px 0;
-  font-weight: 600;
+body {
+  font-family: var(--font-text);
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.47;
+  letter-spacing: -0.374px;
+  color: var(--body);
+  background: var(--canvas);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+}
+
+button {
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 0;
 }
 
 a {
-  color: #396cd8;
+  color: var(--primary);
   text-decoration: none;
 }
-
 a:hover {
   text-decoration: underline;
 }
 
-.paths-table {
-  border-collapse: collapse;
-  width: 100%;
-  max-width: 920px;
+/* ── Typography utility classes (one-to-one with DESIGN.md tokens) ───── */
+.t-hero-display {
+  font-family: var(--font-display);
+  font-size: 56px;
+  font-weight: 600;
+  line-height: 1.07;
+  letter-spacing: -0.28px;
+}
+.t-display-lg {
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: 0;
+}
+.t-display-md {
+  font-family: var(--font-text);
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 1.47;
+  letter-spacing: -0.374px;
+}
+.t-lead {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1.14;
+  letter-spacing: 0.196px;
+}
+.t-lead-airy {
+  font-family: var(--font-text);
+  font-size: 24px;
+  font-weight: 300;
+  line-height: 1.5;
+}
+.t-tagline {
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: 600;
+  line-height: 1.19;
+  letter-spacing: 0.231px;
+}
+.t-body-strong {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.24;
+  letter-spacing: -0.374px;
+}
+.t-body {
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.47;
+  letter-spacing: -0.374px;
+}
+.t-caption {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.43;
+  letter-spacing: -0.224px;
+}
+.t-caption-strong {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.29;
+  letter-spacing: -0.224px;
+}
+.t-fine-print {
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.0;
+  letter-spacing: -0.12px;
+}
+.t-nav-link {
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.0;
+  letter-spacing: -0.12px;
+}
+.t-button-large {
+  font-size: 18px;
+  font-weight: 300;
+  line-height: 1;
+}
+.t-button-utility {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.29;
+  letter-spacing: -0.224px;
 }
 
-.paths-table td {
-  padding: 6px 12px;
-  border-bottom: 1px solid #e0e0e4;
-  vertical-align: top;
+/* ── Buttons (DESIGN.md component grammars) ──────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-xs);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: transform 80ms ease, background 120ms ease, border-color 120ms ease,
+    color 120ms ease;
+  white-space: nowrap;
+  font-family: inherit;
+}
+.btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+.btn:focus-visible {
+  outline: 2px solid var(--primary-focus);
+  outline-offset: 2px;
+}
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
 }
 
-.path-key {
-  width: 140px;
-  color: #6e6e76;
+/* Primary blue pill — the signature Apple action */
+.btn-primary {
+  background: var(--primary);
+  color: var(--on-primary);
+  border-radius: var(--r-pill);
+  padding: 11px 22px;
+  font-size: 17px;
+  font-weight: 400;
+  letter-spacing: -0.374px;
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--primary-focus);
+}
+
+/* Ghost pill — second CTA */
+.btn-secondary {
+  background: transparent;
+  color: var(--primary);
+  border: 1px solid var(--primary);
+  border-radius: var(--r-pill);
+  padding: 11px 22px;
+  font-size: 17px;
+  font-weight: 400;
+  letter-spacing: -0.374px;
+}
+.btn-secondary:hover:not(:disabled) {
+  background: rgba(0, 102, 204, 0.06);
+}
+
+/* Dark utility — for nav-bar style chip actions (Sign In, Bag analog) */
+.btn-dark-utility {
+  background: var(--ink);
+  color: var(--on-dark);
+  border-radius: var(--r-sm);
+  padding: 8px 15px;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: -0.224px;
+}
+.btn-dark-utility:hover:not(:disabled) {
+  background: #2c2c2e;
+}
+
+/* Pearl capsule — soft card-secondary */
+.btn-pearl {
+  background: var(--surface-pearl);
+  color: var(--ink-muted-80);
+  border: 1px solid var(--divider-soft);
+  border-radius: var(--r-md);
+  padding: 8px 14px;
+  font-size: 14px;
+  letter-spacing: -0.224px;
+}
+
+/* Store hero — 18px / weight 300 (the rare weight) */
+.btn-store-hero {
+  background: var(--primary);
+  color: var(--on-primary);
+  border-radius: var(--r-pill);
+  padding: 14px 28px;
+  font-size: 18px;
+  font-weight: 300;
+}
+.btn-store-hero:hover:not(:disabled) {
+  background: var(--primary-focus);
+}
+
+/* ── Cards ────────────────────────────────────────────────────────────── */
+.card-utility {
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-lg);
+  padding: var(--sp-lg);
+}
+
+/* ── Tile shells (full-bleed within content container) ───────────────── */
+.tile {
+  border-radius: var(--r-none);
+  padding: var(--sp-xxl) var(--sp-xl);
+}
+.tile-light {
+  background: var(--canvas);
+  color: var(--ink);
+}
+.tile-parchment {
+  background: var(--canvas-parchment);
+  color: var(--ink);
+}
+.tile-dark {
+  background: var(--surface-tile-1);
+  color: var(--on-dark);
+}
+.tile-dark-2 {
+  background: var(--surface-tile-2);
+  color: var(--on-dark);
+}
+.tile-dark-3 {
+  background: var(--surface-tile-3);
+  color: var(--on-dark);
+}
+
+/* ── Search input (pill-shaped per Apple convention) ─────────────────── */
+.search-input {
+  background: var(--canvas);
+  color: var(--ink);
+  font-size: 17px;
+  letter-spacing: -0.374px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: var(--r-pill);
+  padding: 12px 20px;
+  height: 44px;
+  outline: none;
+}
+.search-input:focus {
+  border-color: var(--primary-focus);
+  box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.12);
+}
+
+.input-text {
+  background: var(--canvas);
+  color: var(--ink);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+  padding: 9px 12px;
+  font-size: 15px;
+  letter-spacing: -0.224px;
+  height: 36px;
+  outline: none;
+  font-family: inherit;
+}
+.input-text:focus {
+  border-color: var(--primary-focus);
+  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.12);
+}
+
+/* ── Configurator chips (pill, selectable) ───────────────────────────── */
+.chip {
+  background: var(--canvas);
+  color: var(--ink);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+  padding: 10px 16px;
+  font-size: 14px;
+  letter-spacing: -0.224px;
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.chip:hover:not(:disabled) {
+  border-color: var(--ink-muted-48);
+}
+.chip:disabled {
+  cursor: not-allowed;
+  color: var(--ink-muted-48);
+  background: var(--surface-pearl);
+}
+.chip-selected {
+  border: 2px solid var(--primary-focus);
+  padding: 9px 15px; /* compensate for thicker border */
+}
+
+/* ── Badges ──────────────────────────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  border-radius: var(--r-xs);
   white-space: nowrap;
 }
-
-.path-val code {
-  font-family: "Cascadia Mono", Consolas, "JetBrains Mono", monospace;
-  font-size: 12.5px;
-  word-break: break-all;
+.badge-loader-forge {
+  background: rgba(157, 36, 36, 0.12);
+  color: #9d2424;
+}
+.badge-loader-fabric {
+  background: rgba(138, 109, 59, 0.14);
+  color: #8a6d3b;
+}
+.badge-loader-neoforge {
+  background: rgba(217, 119, 6, 0.14);
+  color: #b45309;
+}
+.badge-muted {
+  background: var(--divider-soft);
+  color: var(--ink-muted-48);
+  text-transform: none;
+  letter-spacing: -0.224px;
+  font-weight: 400;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    color: #f0f0f4;
-    background-color: #18181b;
-  }
-  .paths-table td {
-    border-bottom-color: #2a2a30;
-  }
-  .path-val code {
-    color: #a8c5ff;
-  }
+/* ── Progress bar ─────────────────────────────────────────────────────── */
+.progress-track {
+  height: 6px;
+  background: var(--divider-soft);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: var(--r-pill);
+  transition: width 200ms ease;
+}
+
+/* ── Log console ──────────────────────────────────────────────────────── */
+.log-console {
+  background: var(--surface-tile-1);
+  color: var(--body-muted);
+  border-radius: var(--r-sm);
+  padding: var(--sp-md);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  height: 240px;
+  overflow: auto;
+}
+.log-console .log-line { word-break: break-word; }
+.log-console .log-source { color: var(--ink-muted-48); }
+.log-console .log-line.warn { color: #ffce5b; }
+.log-console .log-line.error { color: #ff6b6b; }
+
+/* ── Tables ──────────────────────────────────────────────────────────── */
+.data-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.data-table th,
+.data-table td {
+  text-align: left;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 14px;
+  letter-spacing: -0.224px;
+}
+.data-table th {
+  font-weight: 600;
+  color: var(--ink-muted-48);
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  border-bottom-color: var(--hairline);
+}
+.data-table td code {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--ink-muted-80);
+  background: var(--canvas-parchment);
+  padding: 2px 6px;
+  border-radius: var(--r-xs);
+}
+.data-table tr:hover td {
+  background: var(--surface-pearl);
+}
+
+/* ── Layout helpers ──────────────────────────────────────────────────── */
+.container {
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 var(--sp-xl);
+}
+.section {
+  padding-top: var(--sp-xxl);
+  padding-bottom: var(--sp-xxl);
+}
+.section-tight {
+  padding-top: var(--sp-xl);
+  padding-bottom: var(--sp-xl);
+}
+.stack-xs > * + * { margin-top: var(--sp-xs); }
+.stack-sm > * + * { margin-top: var(--sp-sm); }
+.stack-md > * + * { margin-top: var(--sp-md); }
+.stack-lg > * + * { margin-top: var(--sp-lg); }
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-sm);
+}
+.row-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-sm);
+}
+.muted { color: var(--ink-muted-48); }
+.muted-on-dark { color: var(--body-muted); }
+
+/* Scrollbar polish (only Webkit) */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: var(--r-pill);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.32);
+  background-clip: padding-box;
+  border: 2px solid transparent;
 }

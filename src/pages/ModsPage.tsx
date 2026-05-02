@@ -35,143 +35,137 @@ export function ModsPage() {
   }
 
   return (
-    <div>
-      <h1>Mod 管理</h1>
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center" }}>
-        <input
-          placeholder="实例名"
-          value={instanceName}
-          onChange={(e) => setInstanceName(e.target.value)}
-          style={inputStyle}
-        />
-        <button onClick={refresh} disabled={loading} style={btnStyle(loading)}>
-          {loading ? "扫描中…" : "扫描 mods/"}
-        </button>
-      </div>
-      {error && <p style={{ color: "#d44" }}>错误：{error}</p>}
-      {mods && mods.length === 0 && (
-        <p style={{ color: "#6e6e76" }}>
-          mods/ 目录为空或未识别到任何 mod。请把 .jar 放到{" "}
-          <code>./data/instances/{instanceName}/.minecraft/mods/</code>
-        </p>
-      )}
-      {mods && mods.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {mods.map((m) => (
-            <div key={m.filePath} style={modCardStyle(m.enabled)}>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <strong style={{ fontSize: 15 }}>{m.name}</strong>
-                  <span style={badgeStyle(m.loader)}>{m.loader}</span>
-                  <span style={{ fontSize: 12, color: "#6e6e76" }}>v{m.version}</span>
-                  {!m.enabled && <span style={disabledBadge}>禁用</span>}
-                </div>
-                <div style={{ fontSize: 12, color: "#6e6e76", marginTop: 2 }}>
-                  <code>{m.modId}</code>
-                  {m.mcVersionRange && (
-                    <>
-                      {" · "}MC <code>{m.mcVersionRange}</code>
-                    </>
-                  )}
-                  {" · "}side <code>{m.side}</code>
-                  {m.authors.length > 0 && <> · {m.authors.join(", ")}</>}
-                </div>
-                {m.description && (
-                  <div style={{ fontSize: 12, marginTop: 4 }}>{m.description}</div>
-                )}
-                {m.dependencies.length > 0 && (
-                  <div style={{ fontSize: 11, color: "#6e6e76", marginTop: 4 }}>
-                    依赖：
-                    {m.dependencies.map((d, i) => (
-                      <span key={i} style={{ marginRight: 8 }}>
-                        <code>{d.modId}</code>
-                        {d.versionRange && ` ${d.versionRange}`}
-                        {!d.mandatory && " (可选)"}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <button onClick={() => toggle(m)} style={toggleBtnStyle(m.enabled)}>
-                {m.enabled ? "禁用" : "启用"}
-              </button>
-            </div>
-          ))}
+    <section className="section">
+      <div className="container">
+        <div style={{ marginBottom: 32 }}>
+          <h1 className="t-display-lg" style={{ margin: 0 }}>
+            Mod 管理
+          </h1>
+          <p className="t-lead muted" style={{ margin: "8px 0 0" }}>
+            扫描 <code className="mono-inline">.minecraft/mods</code> 下的
+            mods.toml / fabric.mod.json / neoforge.mods.toml
+          </p>
         </div>
-      )}
-    </div>
+
+        <div className="row" style={{ marginBottom: 24, gap: 12 }}>
+          <input
+            className="input-text"
+            style={{ width: 240 }}
+            placeholder="实例名"
+            value={instanceName}
+            onChange={(e) => setInstanceName(e.target.value)}
+          />
+          <button
+            onClick={refresh}
+            disabled={loading}
+            className="btn btn-primary"
+          >
+            {loading ? "扫描中…" : "扫描"}
+          </button>
+        </div>
+
+        {error && (
+          <p className="t-caption" style={{ color: "#d44", marginBottom: 16 }}>
+            错误：{error}
+          </p>
+        )}
+
+        {mods && mods.length === 0 && (
+          <div className="card-utility" style={{ textAlign: "center" }}>
+            <p className="t-body muted">
+              mods/ 目录为空或未识别到任何 mod。把 .jar 放到
+              <br />
+              <code className="mono-inline" style={{ marginTop: 8, display: "inline-block" }}>
+                ./data/instances/{instanceName}/.minecraft/mods/
+              </code>
+              <br />
+              后重新扫描。
+            </p>
+          </div>
+        )}
+
+        {mods && mods.length > 0 && (
+          <div style={{ display: "grid", gap: 16 }}>
+            {mods.map((m) => (
+              <article
+                key={m.filePath}
+                className="card-utility"
+                style={{
+                  display: "flex",
+                  gap: 20,
+                  alignItems: "flex-start",
+                  opacity: m.enabled ? 1 : 0.55,
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="row-wrap" style={{ alignItems: "center", gap: 10 }}>
+                    <span className="t-body-strong" style={{ wordBreak: "break-all" }}>
+                      {m.name}
+                    </span>
+                    <span className={`badge badge-loader-${m.loader}`}>
+                      {m.loader}
+                    </span>
+                    <span className="t-caption muted">v{m.version}</span>
+                    {!m.enabled && <span className="badge badge-muted">禁用</span>}
+                  </div>
+                  <div
+                    className="t-caption muted"
+                    style={{ marginTop: 6, wordBreak: "break-word" }}
+                  >
+                    <code className="mono-inline">{m.modId}</code>
+                    {m.mcVersionRange && (
+                      <>
+                        {" · "}MC <code className="mono-inline">{m.mcVersionRange}</code>
+                      </>
+                    )}
+                    {" · "}side{" "}
+                    <code className="mono-inline">{m.side}</code>
+                    {m.authors.length > 0 && <> · {m.authors.join(", ")}</>}
+                  </div>
+                  {m.description && (
+                    <p
+                      className="t-caption"
+                      style={{ marginTop: 8, color: "var(--ink-muted-80)" }}
+                    >
+                      {m.description}
+                    </p>
+                  )}
+                  {m.dependencies.length > 0 && (
+                    <div className="row-wrap" style={{ marginTop: 8, gap: 6 }}>
+                      <span className="t-caption muted">依赖：</span>
+                      {m.dependencies.map((d, i) => (
+                        <span
+                          key={i}
+                          className="t-caption"
+                          style={{
+                            background: "var(--canvas-parchment)",
+                            padding: "2px 8px",
+                            borderRadius: "var(--r-pill)",
+                            color: "var(--ink-muted-80)",
+                          }}
+                        >
+                          <code className="mono-inline" style={{ background: "transparent", padding: 0 }}>
+                            {d.modId}
+                          </code>
+                          {d.versionRange && ` ${d.versionRange}`}
+                          {!d.mandatory && " · 可选"}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => toggle(m)}
+                  className={m.enabled ? "btn btn-secondary" : "btn btn-primary"}
+                  style={{ minWidth: 76 }}
+                >
+                  {m.enabled ? "禁用" : "启用"}
+                </button>
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
   );
-}
-
-const inputStyle: React.CSSProperties = {
-  padding: "6px 10px",
-  border: "1px solid #cfcfd4",
-  borderRadius: 6,
-  fontSize: 14,
-};
-
-function btnStyle(disabled: boolean): React.CSSProperties {
-  return {
-    padding: "6px 14px",
-    background: disabled ? "#a8a8b0" : "#396cd8",
-    color: "white",
-    border: "none",
-    borderRadius: 6,
-    cursor: disabled ? "not-allowed" : "pointer",
-    fontSize: 13,
-  };
-}
-
-function modCardStyle(enabled: boolean): React.CSSProperties {
-  return {
-    display: "flex",
-    alignItems: "flex-start",
-    gap: 12,
-    padding: "10px 12px",
-    border: "1px solid #cfcfd4",
-    borderRadius: 6,
-    background: enabled ? "white" : "#f0f0f4",
-    opacity: enabled ? 1 : 0.7,
-  };
-}
-
-function badgeStyle(loader: string): React.CSSProperties {
-  const colors: Record<string, string> = {
-    forge: "#9d2424",
-    fabric: "#8a6d3b",
-    neoforge: "#d97706",
-  };
-  return {
-    display: "inline-block",
-    padding: "1px 6px",
-    fontSize: 10,
-    fontWeight: 600,
-    color: "white",
-    background: colors[loader] ?? "#6e6e76",
-    borderRadius: 3,
-    textTransform: "uppercase",
-  };
-}
-
-const disabledBadge: React.CSSProperties = {
-  display: "inline-block",
-  padding: "1px 6px",
-  fontSize: 10,
-  fontWeight: 600,
-  color: "#6e6e76",
-  border: "1px solid #cfcfd4",
-  borderRadius: 3,
-};
-
-function toggleBtnStyle(enabled: boolean): React.CSSProperties {
-  return {
-    padding: "5px 12px",
-    background: enabled ? "#dc3545" : "#28a745",
-    color: "white",
-    border: "none",
-    borderRadius: 4,
-    cursor: "pointer",
-    fontSize: 12,
-    minWidth: 56,
-  };
 }
