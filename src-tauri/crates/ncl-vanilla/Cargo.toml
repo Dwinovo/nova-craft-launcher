@@ -16,6 +16,8 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
 reqwest = { workspace = true }
+async-trait = { workspace = true }
+zip = { workspace = true }
 tracing = { workspace = true }
 thiserror = { workspace = true }
 

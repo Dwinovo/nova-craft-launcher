@@ -15,7 +15,7 @@ pub use arguments::{
 };
 pub use assets::{AssetIndex, AssetIndexInfo, AssetObject};
 pub use java::JavaVersionRequirement;
-pub use library::{maven_ga, ArtifactInfo, Library, LibraryDownloads};
+pub use library::{maven_ga, ArtifactInfo, ExtractRules, Library, LibraryDownloads};
 pub use version::{
     DownloadInfo, LatestVersions, MainDownloads, RawVersion, ResolvedManifest, VersionList,
     VersionListEntry, VersionType,
