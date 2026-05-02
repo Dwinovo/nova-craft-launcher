@@ -1,0 +1,21 @@
+[package]
+name = "ncl-launch"
+description = "NCL launch argument builder + process supervisor + log capture"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+ncl-core = { workspace = true }
+ncl-java = { workspace = true }
+ncl-vanilla = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+md-5 = { workspace = true }
+uuid = { workspace = true }

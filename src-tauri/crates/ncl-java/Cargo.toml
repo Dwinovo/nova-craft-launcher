@@ -1,0 +1,20 @@
+[package]
+name = "ncl-java"
+description = "NCL Java runtime detection, compatibility matrix, memory recommendation"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+ncl-core = { workspace = true }
+serde = { workspace = true }
+tokio = { workspace = true }
+sysinfo = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+winreg = { workspace = true }

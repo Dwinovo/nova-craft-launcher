@@ -1,16 +1,81 @@
+[workspace]
+members = ["crates/*"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["dwin"]
+license = "MIT"
+repository = "https://github.com/dwin/nova-craft-launcher"
+
+[workspace.dependencies]
+# 业务 crate 互相引用
+ncl-core = { path = "crates/ncl-core" }
+ncl-net = { path = "crates/ncl-net" }
+ncl-task = { path = "crates/ncl-task" }
+ncl-vanilla = { path = "crates/ncl-vanilla" }
+ncl-loader = { path = "crates/ncl-loader" }
+ncl-mod = { path = "crates/ncl-mod" }
+ncl-java = { path = "crates/ncl-java" }
+ncl-launch = { path = "crates/ncl-launch" }
+
+# 异步运行时
+tokio = { version = "1.41", features = ["full"] }
+async-trait = "0.1"
+futures = "0.3"
+
+# 序列化
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+# HTTP
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "stream"] }
+
+# 压缩 / 校验
+zip = "2"
+sha1 = "0.10"
+sha2 = "0.10"
+hex = "0.4"
+
+# Windows
+winreg = "0.52"
+
+# 日志 / 错误
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+thiserror = "2"
+anyhow = "1"
+
+# 系统信息 / 工具
+sysinfo = "0.32"
+semver = "1"
+uuid = { version = "1", features = ["v3", "v4"] }
+md-5 = "0.10"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"
+missing_errors_doc = "allow"
+must_use_candidate = "allow"
+
+# ----------------------------------------------------------------------------
+# Tauri 应用本身（同时是 workspace 根 package）
+# ----------------------------------------------------------------------------
+
 [package]
 name = "nova-craft-launcher"
-version = "0.1.0"
 description = "Nova Craft Launcher - LLM Agent driven Minecraft launcher"
-authors = ["dwin"]
-edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
 
 [lib]
-# The `_lib` suffix may seem redundant but it is necessary
-# to make the lib name unique and wouldn't conflict with the bin name.
-# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
 name = "nova_craft_launcher_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
@@ -20,6 +85,12 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }
 
+ncl-core = { workspace = true }
+ncl-net = { workspace = true }

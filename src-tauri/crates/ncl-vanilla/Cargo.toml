@@ -1,0 +1,19 @@
+[package]
+name = "ncl-vanilla"
+description = "NCL Mojang version manifest, asset, library handling"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+ncl-core = { workspace = true }
+ncl-net = { workspace = true }
+ncl-task = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }

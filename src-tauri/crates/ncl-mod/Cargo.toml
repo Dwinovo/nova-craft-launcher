@@ -1,0 +1,19 @@
+[package]
+name = "ncl-mod"
+description = "NCL mod metadata parsing (Forge / Fabric / NeoForge)"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+ncl-core = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+toml = { workspace = true }
+zip = { workspace = true }
+semver = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }

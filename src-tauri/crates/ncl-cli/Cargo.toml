@@ -1,0 +1,20 @@
+[package]
+name = "ncl-cli"
+description = "NCL command-line interface (Phase 2 entry point, scaffold-only in Phase 1)"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "ncl"
+path = "src/main.rs"
+
+[dependencies]
+ncl-core = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

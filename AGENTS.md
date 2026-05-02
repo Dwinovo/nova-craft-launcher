@@ -70,36 +70,65 @@
 ## 🛠️ 技术栈（已确定）
 
 - **桌面端框架**：[Tauri 2](https://v2.tauri.app/)（Rust 后端 + Web 前端，体积小、原生性能、跨平台）
-- **前端**：React + TypeScript + Vite
+- **前端**：React + TypeScript + Vite + react-router-dom
 - **包管理器**：pnpm
-- **后端语言**：Rust（在 `src-tauri/` 中，是阶段 1~2 所有版本管理 / Mod 加载 / CLI 能力的真正核心）
+- **后端语言**：Rust（cargo workspace，阶段 1~2 所有版本管理 / Mod 加载 / CLI 能力的真正核心）
 - **应用 Identifier**：`com.dwin.novacraftlauncher`
+- **数据存储**：便携式 `./data/`（PCL 风格），不可写时回落 `%APPDATA%/NovaCraftLauncher/`
 
 ### 仓库结构
 ```
 nova-craft-launcher/
-├── src/                    # React 前端（启动器 GUI）
+├── src/                          # React 前端（启动器 GUI）
 │   ├── App.tsx
-│   ├── main.tsx
-│   └── ...
-├── src-tauri/              # Rust 后端（核心业务逻辑、CLI、Skills）
-│   ├── src/
-│   ├── Cargo.toml
-│   ├── tauri.conf.json
-│   └── capabilities/
-├── public/
-├── package.json
-├── vite.config.ts
-└── AGENTS.md               # 本文件
+│   ├── components/AppShell.tsx   # 侧栏 + 主区
+│   ├── pages/                    # Home / Instances / Mods / Java / Settings
+│   └── lib/api.ts                # Tauri invoke 包装
+├── src-tauri/                    # Rust workspace
+│   ├── Cargo.toml                # workspace 根 + Tauri app 包
+│   ├── src/                      # Tauri app（仅 IPC 包装）
+│   │   ├── lib.rs
+│   │   └── ipc/                  # 各域命令薄包装
+│   └── crates/                   # 9 个独立业务 crate
+│       ├── ncl-core/             # 类型/错误/PathLayout/ProgressSink ✅
+│       ├── ncl-net/              # HTTP/镜像/下载/SHA ✅(部分)
+│       ├── ncl-task/             # DAG 任务编排（Sprint 1+）
+│       ├── ncl-vanilla/          # Mojang manifest（Sprint 1+）
+│       ├── ncl-loader/           # Forge/Fabric/NeoForge（Sprint 3+）
+│       ├── ncl-mod/              # mod 元数据（Sprint 4+）
+│       ├── ncl-java/             # Java 检测（Sprint 1+/Sprint 5）
+│       ├── ncl-launch/           # 启动参数 + 进程（Sprint 1+）
+│       └── ncl-cli/              # CLI 入口（阶段 2）
+└── AGENTS.md
 ```
 
 ### 常用命令
 ```bash
-pnpm install            # 安装前端依赖
-pnpm tauri dev          # 启动开发模式（前端 + Rust 后端热重载）
-pnpm tauri build        # 构建生产包
-pnpm dev                # 仅启动前端 Vite（一般不单独跑）
+pnpm install                          # 安装前端依赖
+pnpm tauri dev                        # 启动开发模式（前端 + Rust 后端热重载）
+pnpm tauri build                      # 构建生产包
+
+cd src-tauri
+cargo check --workspace --all-targets # 全 crate 编译检查
+cargo test --workspace                # 全 crate 单测
+cargo run --bin ncl                   # 运行 CLI（阶段 2 才完整）
 ```
+
+---
+
+## 📊 阶段 1 实施进度
+
+实施计划详见 `C:\Users\dwin\.claude\plans\forge-fabric-neoforge-shiny-hearth.md`。
+
+| Sprint | 主题 | 状态 |
+|---|---|---|
+| **0** | 地基 — workspace + 9 crate + 核心契约 + 前端骨架 + IPC 联通 | ✅ 已完成 |
+| 1 | Vanilla 1.21.1 最小启动路径 | ⏳ 待开始 |
+| 2 | BMCLAPI 镜像 + 下载稳定性 | ⏳ 待开始 |
+| 3 | Forge + Fabric 支持 | ⏳ 待开始 |
+| 4 | NeoForge + Mod 管理 | ⏳ 待开始 |
+| 5 | Java 全面扫描 + 内存推荐 | ⏳ 待开始 |
+| 6 | CLI 骨架 + 打磨（缓冲） | ⏳ 待开始 |
 
 ---
 
