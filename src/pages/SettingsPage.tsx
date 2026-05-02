@@ -42,132 +42,161 @@ export function SettingsPage() {
   }
 
   return (
-    <section className="section">
-      <div className="container">
-        <div style={{ marginBottom: 32 }}>
-          <h1 className="t-display-lg" style={{ margin: 0 }}>
-            设置
-          </h1>
-          <p className="t-lead muted" style={{ margin: "8px 0 0" }}>
-            镜像 · 并发 · 目录布局
-          </p>
+    <div style={{ padding: "32px 40px", maxWidth: 1180, margin: "0 auto" }}>
+      <header style={{ marginBottom: 24 }}>
+        <h1 className="t-h1" style={{ margin: 0, marginBottom: 6 }}>
+          设置
+        </h1>
+        <p className="t-body muted" style={{ margin: 0 }}>
+          镜像 · 并发 · 目录布局
+        </p>
+      </header>
+
+      {error && (
+        <div
+          className="card-base"
+          style={{
+            background: "var(--tint-rose)",
+            borderColor: "var(--brand-pink-deep)",
+            color: "var(--brand-pink-deep)",
+            marginBottom: 16,
+          }}
+        >
+          错误：{error}
         </div>
+      )}
 
-        {error && (
-          <p className="t-caption" style={{ color: "#d44" }}>
-            错误：{error}
-          </p>
-        )}
-
-        {/* ── Mirror policy ───────────────────────────────────────── */}
-        {config && (
-          <section style={{ marginBottom: 48 }}>
-            <div
-              className="row"
-              style={{ marginBottom: 16, justifyContent: "space-between" }}
-            >
-              <h2 className="t-display-md" style={{ margin: 0 }}>
-                下载策略
-              </h2>
-              {saving && (
-                <span className="t-caption muted">保存中…</span>
-              )}
-            </div>
-            <div className="row-wrap" style={{ gap: 12, marginBottom: 24 }}>
-              {mirrorOptions.map((opt) => (
-                <button
-                  key={opt.v}
-                  onClick={() => update({ ...config, mirror_policy: opt.v })}
-                  className={`chip ${config.mirror_policy === opt.v ? "chip-selected" : ""}`}
-                  title={opt.note}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-            <p className="t-caption muted" style={{ marginBottom: 24 }}>
-              {mirrorOptions.find((o) => o.v === config.mirror_policy)?.note}
-            </p>
-
-            <div
-              className="card-utility"
-              style={{ maxWidth: 480 }}
-            >
-              <div
-                className="row"
-                style={{ justifyContent: "space-between", marginBottom: 12 }}
-              >
-                <span className="t-body-strong">全局并发下载数</span>
-                <span
-                  className="t-display-md"
-                  style={{ margin: 0, color: "var(--primary)" }}
-                >
-                  {config.max_concurrent_downloads}
-                </span>
-              </div>
-              <input
-                type="range"
-                min={1}
-                max={32}
-                value={config.max_concurrent_downloads}
-                onChange={(e) =>
-                  update({
-                    ...config,
-                    max_concurrent_downloads: Number(e.target.value),
-                  })
-                }
-                style={{ width: "100%", accentColor: "var(--primary)" }}
-              />
-              <div
-                className="row"
-                style={{ justifyContent: "space-between", marginTop: 4 }}
-              >
-                <span className="t-fine-print muted">1</span>
-                <span className="t-fine-print muted">32</span>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* ── Path layout ─────────────────────────────────────────── */}
-        <section>
-          <h2
-            className="t-display-md"
-            style={{ margin: 0, marginBottom: 16 }}
+      {/* ── 下载策略 ─────────────────────────────────────────────────── */}
+      {config && (
+        <section className="card-base" style={{ marginBottom: 16 }}>
+          <div
+            className="row"
+            style={{
+              justifyContent: "space-between",
+              marginBottom: 12,
+              alignItems: "baseline",
+            }}
           >
-            目录布局
-          </h2>
-          {!paths && !error && <p className="t-caption muted">加载中…</p>}
-          {paths && (
-            <div className="card-utility" style={{ padding: 0, overflow: "hidden" }}>
-              <table className="data-table">
-                <tbody>
-                  {[
-                    ["模式", paths.mode],
-                    ["数据根目录", paths.dataRoot],
-                    ["实例", paths.instances],
-                    ["共享 assets", paths.sharedAssets],
-                    ["共享 libraries", paths.sharedLibraries],
-                    ["共享 versions", paths.sharedVersions],
-                    ["配置文件", paths.configFile],
-                    ["日志", paths.logs],
-                    ["缓存", paths.cache],
-                  ].map(([k, v]) => (
-                    <tr key={k}>
-                      <td style={{ width: 160, color: "var(--ink-muted-48)" }}>
-                        {k}
-                      </td>
-                      <td>
-                        <code>{v}</code>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+            <h2 className="t-h3" style={{ margin: 0 }}>
+              下载策略
+            </h2>
+            {saving && <span className="t-caption muted">保存中…</span>}
+          </div>
+          <div className="row-wrap" style={{ gap: 8, marginBottom: 12 }}>
+            {mirrorOptions.map((opt) => (
+              <button
+                key={opt.v}
+                onClick={() => update({ ...config, mirror_policy: opt.v })}
+                className={`pill-tab ${config.mirror_policy === opt.v ? "active" : ""}`}
+                title={opt.note}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <p className="t-body-sm muted" style={{ margin: 0 }}>
+            {mirrorOptions.find((o) => o.v === config.mirror_policy)?.note}
+          </p>
         </section>
-      </div>
-    </section>
+      )}
+
+      {/* ── 并发数 ───────────────────────────────────────────────────── */}
+      {config && (
+        <section
+          className="card-base"
+          style={{ marginBottom: 16, maxWidth: 480 }}
+        >
+          <div
+            className="row"
+            style={{
+              justifyContent: "space-between",
+              alignItems: "baseline",
+              marginBottom: 8,
+            }}
+          >
+            <h3 className="t-h4" style={{ margin: 0 }}>
+              全局并发下载
+            </h3>
+            <span
+              style={{
+                fontSize: 24,
+                fontWeight: 600,
+                color: "var(--primary)",
+              }}
+            >
+              {config.max_concurrent_downloads}
+            </span>
+          </div>
+          <input
+            type="range"
+            min={1}
+            max={32}
+            value={config.max_concurrent_downloads}
+            onChange={(e) =>
+              update({
+                ...config,
+                max_concurrent_downloads: Number(e.target.value),
+              })
+            }
+            style={{ width: "100%" }}
+          />
+          <div
+            className="row"
+            style={{
+              justifyContent: "space-between",
+              marginTop: 4,
+              color: "var(--steel)",
+              fontSize: 11,
+            }}
+          >
+            <span>1</span>
+            <span>16 (默认)</span>
+            <span>32</span>
+          </div>
+        </section>
+      )}
+
+      {/* ── 目录布局 ─────────────────────────────────────────────────── */}
+      <section>
+        <h2 className="t-h3" style={{ margin: 0, marginBottom: 12 }}>
+          目录布局
+        </h2>
+        {!paths && !error && <p className="t-caption muted">加载中…</p>}
+        {paths && (
+          <div className="card-base" style={{ padding: 0, overflow: "hidden" }}>
+            <table className="data-table">
+              <tbody>
+                {[
+                  ["模式", paths.mode],
+                  ["数据根目录", paths.dataRoot],
+                  ["实例", paths.instances],
+                  ["共享 assets", paths.sharedAssets],
+                  ["共享 libraries", paths.sharedLibraries],
+                  ["共享 versions", paths.sharedVersions],
+                  ["配置文件", paths.configFile],
+                  ["日志", paths.logs],
+                  ["缓存", paths.cache],
+                ].map(([k, v]) => (
+                  <tr key={k}>
+                    <td
+                      style={{
+                        width: 160,
+                        color: "var(--steel)",
+                        fontWeight: 500,
+                      }}
+                    >
+                      {k}
+                    </td>
+                    <td>
+                      <code>{v}</code>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </div>
   );
 }

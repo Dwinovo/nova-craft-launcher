@@ -1,113 +1,129 @@
 .app-shell {
   display: flex;
-  flex-direction: column;
   height: 100vh;
-  background: var(--canvas);
-  color: var(--body);
+  background: var(--surface);
+  color: var(--ink);
 }
 
-/* ── Global nav: 44px black bar (DESIGN.md: global-nav) ─────────────── */
-.global-nav {
-  background: var(--surface-black);
-  color: var(--on-dark);
-  height: var(--nav-global-h);
+/* ── Sidebar ───────────────────────────────────────────────────────── */
+.sidebar {
+  width: var(--sidebar-w);
   flex-shrink: 0;
-  position: sticky;
-  top: 0;
-  z-index: 50;
+  background: var(--surface);
+  border-right: 1px solid var(--hairline);
+  display: flex;
+  flex-direction: column;
+  padding: var(--sp-md) 0;
 }
 
-.global-nav-inner {
-  height: 100%;
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 0 var(--sp-xl);
+.sidebar-brand {
   display: flex;
   align-items: center;
-  gap: var(--sp-xl);
+  gap: var(--sp-sm);
+  padding: 8px var(--sp-md) var(--sp-lg);
 }
 
-.brand {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-xs);
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: -0.12px;
-  color: var(--on-dark);
-}
-.brand-glyph {
+.sidebar-brand-glyph {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-md);
+  background: var(--primary);
+  color: var(--on-primary);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
-  font-size: 13px;
-  color: var(--primary-on-dark);
-  transform: translateY(-1px);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  flex-shrink: 0;
+}
+.sidebar-brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+.sidebar-brand-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.sidebar-brand-sub {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--steel);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
 }
 
-.global-nav-links {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+/* ── Nav list ──────────────────────────────────────────────────────── */
+.sidebar-nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 var(--sp-xs);
+}
+
+.sidebar-link {
   display: flex;
   align-items: center;
-  gap: 4px;
-  flex: 1;
+  gap: var(--sp-sm);
+  padding: 8px var(--sp-sm);
+  border-radius: var(--r-sm);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--slate);
+  text-decoration: none;
+  transition: background 120ms ease, color 120ms ease;
+}
+.sidebar-link:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--ink);
+  text-decoration: none;
+}
+.sidebar-link.active {
+  background: rgba(86, 69, 212, 0.12);
+  color: var(--primary);
 }
 
-.global-nav-link {
+.sidebar-link-icon {
   display: inline-flex;
   align-items: center;
-  height: var(--nav-global-h);
-  padding: 0 var(--sp-sm);
-  font-size: 12px;
-  font-weight: 400;
-  line-height: 1;
-  letter-spacing: -0.12px;
-  color: rgba(255, 255, 255, 0.72);
-  text-decoration: none;
-  transition: color 120ms ease;
-}
-.global-nav-link:hover {
-  color: var(--on-dark);
-  text-decoration: none;
-}
-.global-nav-link.active {
-  color: var(--on-dark);
-}
-
-.global-nav-meta {
-  font-size: 11px;
-  letter-spacing: -0.08px;
-  color: rgba(255, 255, 255, 0.48);
-  white-space: nowrap;
-}
-
-/* ── Sub-nav frosted: parchment 80% + backdrop blur ──────────────────── */
-.sub-nav {
-  height: var(--nav-sub-h);
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  font-size: 14px;
   flex-shrink: 0;
-  background: rgba(245, 245, 247, 0.82);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  backdrop-filter: saturate(180%) blur(20px);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
-  position: sticky;
-  top: var(--nav-global-h);
-  z-index: 40;
+  opacity: 0.85;
 }
-.sub-nav-inner {
-  height: 100%;
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 0 var(--sp-xl);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.sidebar-link.active .sidebar-link-icon {
+  opacity: 1;
 }
 
-/* ── Main area: scrolls under the sticky navs ────────────────────────── */
+/* ── Footer ────────────────────────────────────────────────────────── */
+.sidebar-footer {
+  padding: var(--sp-md);
+  border-top: 1px solid var(--hairline-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sidebar-footer-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.sidebar-footer-version {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--steel);
+}
+.sidebar-footer-stage {
+  font-size: 11px;
+  color: var(--stone);
+}
+
+/* ── Main area ─────────────────────────────────────────────────────── */
 .main-area {
   flex: 1;
   overflow: auto;

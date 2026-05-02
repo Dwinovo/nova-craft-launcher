@@ -57,10 +57,7 @@ export function InstancesPage() {
         setSelected(r.latestRelease);
         setLoading(false);
       })
-      .catch((e) => {
-        console.error(e);
-        setLoading(false);
-      });
+      .catch(() => setLoading(false));
   }, []);
 
   useEffect(() => {
@@ -175,7 +172,6 @@ export function InstancesPage() {
         },
       ]);
     } catch (e) {
-      console.error(e);
       setInstalling(false);
       setProgress(null);
       setLogs((l) => [
@@ -213,61 +209,102 @@ export function InstancesPage() {
     : 0;
 
   return (
-    <section className="section">
-      <div className="container">
-        {loading && <p className="muted">加载版本清单…</p>}
+    <div style={{ padding: "32px 40px", maxWidth: 1180, margin: "0 auto" }}>
+      <header style={{ marginBottom: 24 }}>
+        <h1 className="t-h1" style={{ margin: 0, marginBottom: 6 }}>
+          实例
+        </h1>
+        <p className="t-body muted" style={{ margin: 0 }}>
+          挑一个 Minecraft 版本，选加载器，开装。
+          {list && (
+            <>
+              {" 最新 release "}
+              <code>{list.latestRelease}</code>
+              {" · snapshot "}
+              <code>{list.latestSnapshot}</code>
+            </>
+          )}
+        </p>
+      </header>
 
-        {list && (
-          <>
-            {/* ── Heading ──────────────────────────────────────────── */}
-            <div style={{ marginBottom: 32 }}>
-              <h1 className="t-display-lg" style={{ margin: 0 }}>
-                选个版本，开始游戏
-              </h1>
-              <p className="t-lead muted" style={{ margin: "8px 0 0" }}>
-                最新 release{" "}
-                <code className="mono-inline">{list.latestRelease}</code>，
-                snapshot{" "}
-                <code className="mono-inline">{list.latestSnapshot}</code>
-              </p>
-            </div>
+      {loading && <p className="muted">加载版本清单…</p>}
 
-            {/* ── Search + identity inputs ─────────────────────────── */}
-            <div
-              className="row-wrap"
-              style={{ marginBottom: 24, alignItems: "center" }}
-            >
+      {list && (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "minmax(0, 1fr) 320px",
+            gap: 24,
+            alignItems: "start",
+          }}
+        >
+          {/* ── LEFT: pickers + log ─────────────────────────────────── */}
+          <div>
+            {/* 实例信息 + 搜索 */}
+            <div className="card-base" style={{ marginBottom: 16 }}>
+              <div className="eyebrow" style={{ marginBottom: 12 }}>
+                实例
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 12,
+                  marginBottom: 12,
+                }}
+              >
+                <div>
+                  <div
+                    className="t-caption"
+                    style={{
+                      color: "var(--steel)",
+                      marginBottom: 4,
+                    }}
+                  >
+                    实例名
+                  </div>
+                  <input
+                    className="text-input"
+                    style={{ width: "100%" }}
+                    value={instanceName}
+                    onChange={(e) => setInstanceName(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <div
+                    className="t-caption"
+                    style={{
+                      color: "var(--steel)",
+                      marginBottom: 4,
+                    }}
+                  >
+                    离线用户名
+                  </div>
+                  <input
+                    className="text-input"
+                    style={{ width: "100%" }}
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                  />
+                </div>
+              </div>
               <input
-                className="search-input"
-                style={{ flex: "1 1 280px", minWidth: 200 }}
+                className="search-pill"
+                style={{ width: "100%" }}
                 placeholder="搜索版本（例：1.21.1）"
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
               />
-              <input
-                className="input-text"
-                style={{ width: 180 }}
-                placeholder="实例名"
-                value={instanceName}
-                onChange={(e) => setInstanceName(e.target.value)}
-              />
-              <input
-                className="input-text"
-                style={{ width: 160 }}
-                placeholder="离线用户名"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-              />
             </div>
 
-            {/* ── Version list ─────────────────────────────────────── */}
+            {/* 版本列表 */}
             <div
-              className="card-utility"
+              className="card-base"
               style={{
                 padding: 0,
                 maxHeight: 320,
                 overflow: "auto",
-                marginBottom: 32,
+                marginBottom: 16,
               }}
             >
               {filtered.map((v) => (
@@ -280,24 +317,16 @@ export function InstancesPage() {
               ))}
             </div>
 
-            {/* ── Loader picker ────────────────────────────────────── */}
-            <div style={{ marginBottom: 32 }}>
-              <div
-                className="t-caption-strong"
-                style={{
-                  textTransform: "uppercase",
-                  letterSpacing: 0.6,
-                  color: "var(--ink-muted-48)",
-                  marginBottom: 12,
-                }}
-              >
+            {/* Loader 选 */}
+            <div className="card-base" style={{ marginBottom: 16 }}>
+              <div className="eyebrow" style={{ marginBottom: 10 }}>
                 Mod 加载器
               </div>
-              <div className="row-wrap">
+              <div className="row-wrap" style={{ gap: 8 }}>
                 {loaderTabs.map((opt) => (
                   <button
                     key={opt.v}
-                    className={`chip ${loaderChoice === opt.v ? "chip-selected" : ""}`}
+                    className={`pill-tab ${loaderChoice === opt.v ? "active" : ""}`}
                     onClick={() => setLoaderChoice(opt.v)}
                   >
                     {opt.label}
@@ -305,17 +334,22 @@ export function InstancesPage() {
                 ))}
               </div>
               {loaderChoice !== "vanilla" && (
-                <div style={{ marginTop: 16 }}>
-                  {loaderLoading && <span className="t-caption muted">加载 loader 版本…</span>}
+                <div style={{ marginTop: 12 }}>
+                  {loaderLoading && (
+                    <span className="t-caption muted">加载 loader 版本…</span>
+                  )}
                   {loaderError && (
-                    <span className="t-caption" style={{ color: "#d44" }}>
+                    <span
+                      className="t-caption"
+                      style={{ color: "var(--error)" }}
+                    >
                       错误：{loaderError}
                     </span>
                   )}
                   {loaderVersions && (
                     <select
-                      className="input-text"
-                      style={{ minWidth: 260 }}
+                      className="text-input"
+                      style={{ minWidth: 280 }}
                       value={loaderVersionPick ?? ""}
                       onChange={(e) => setLoaderVersionPick(e.target.value)}
                     >
@@ -330,70 +364,132 @@ export function InstancesPage() {
               )}
             </div>
 
-            {/* ── Action buttons ───────────────────────────────────── */}
-            <div className="row" style={{ marginBottom: 24, gap: 12 }}>
-              <button
-                onClick={handleInstall}
-                disabled={!selected || installing}
-                className="btn btn-primary"
-              >
-                {installing
-                  ? "安装中…"
-                  : loaderChoice === "vanilla"
-                  ? `安装原版 ${selected ?? ""}`
-                  : `安装 ${loaderChoice} ${loaderVersionPick ?? ""}`}
-              </button>
-              <button
-                onClick={handleLaunch}
-                disabled={!installComplete || processPid !== null}
-                className="btn btn-secondary"
-              >
-                {processPid !== null ? `已启动 (PID ${processPid})` : "启动游戏"}
-              </button>
-            </div>
-
-            {/* ── Progress ─────────────────────────────────────────── */}
-            {progress && (
-              <div style={{ marginBottom: 24 }}>
-                <div
-                  className="t-caption muted"
-                  style={{ marginBottom: 6 }}
-                >
-                  {progress.label || "进行中…"} · {progress.completed}/{progress.total} ({pct}%)
-                </div>
-                <div className="progress-track">
-                  <div className="progress-fill" style={{ width: `${pct}%` }} />
-                </div>
-              </div>
-            )}
-
-            {/* ── Log console ──────────────────────────────────────── */}
+            {/* 日志 */}
             {logs.length > 0 && (
               <div>
                 <div
-                  className="t-caption-strong"
+                  className="row"
                   style={{
-                    textTransform: "uppercase",
-                    letterSpacing: 0.6,
-                    color: "var(--ink-muted-48)",
+                    justifyContent: "space-between",
                     marginBottom: 8,
                   }}
                 >
-                  日志
+                  <span className="eyebrow">日志</span>
+                  <button
+                    className="btn-link"
+                    onClick={() => setLogs([])}
+                    style={{ fontSize: 12 }}
+                  >
+                    清空
+                  </button>
                 </div>
                 <div ref={logsRef} className="log-console">
                   {logs.map((l, i) => (
                     <div key={i} className={`log-line ${l.level}`}>
-                      <span className="log-source">[{l.source}]</span> {l.message}
+                      <span className="log-source">[{l.source}]</span>{" "}
+                      {l.message}
                     </div>
                   ))}
                 </div>
               </div>
             )}
-          </>
-        )}
-      </div>
-    </section>
+          </div>
+
+          {/* ── RIGHT: action panel ──────────────────────────────────── */}
+          <aside style={{ position: "sticky", top: 32 }}>
+            <div className="card-base">
+              <div className="eyebrow" style={{ marginBottom: 8 }}>
+                即将安装
+              </div>
+              <div
+                className="t-h4"
+                style={{ margin: 0, marginBottom: 6, wordBreak: "break-all" }}
+              >
+                {selected ?? "—"}
+              </div>
+              <div
+                className="t-body-sm muted"
+                style={{
+                  marginBottom: 16,
+                  wordBreak: "break-all",
+                }}
+              >
+                {loaderChoice === "vanilla"
+                  ? "原版 (无 mod 加载器)"
+                  : `${loaderChoice} ${loaderVersionPick ?? "(选择版本)"}`}
+                <br />
+                实例：<code>{instanceName}</code>
+                <br />
+                玩家：<code>{username}</code>
+              </div>
+
+              <div className="stack-sm">
+                <button
+                  onClick={handleInstall}
+                  disabled={!selected || installing}
+                  className="btn btn-primary"
+                  style={{ width: "100%" }}
+                >
+                  {installing
+                    ? "安装中…"
+                    : loaderChoice === "vanilla"
+                    ? "安装原版"
+                    : "安装 + Loader"}
+                </button>
+                <button
+                  onClick={handleLaunch}
+                  disabled={!installComplete || processPid !== null}
+                  className="btn btn-secondary"
+                  style={{ width: "100%" }}
+                >
+                  {processPid !== null
+                    ? `已启动 (PID ${processPid})`
+                    : "启动游戏"}
+                </button>
+              </div>
+
+              {progress && (
+                <div style={{ marginTop: 16 }}>
+                  <div
+                    className="t-caption muted"
+                    style={{
+                      marginBottom: 6,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {progress.label || "…"} · {pct}%
+                  </div>
+                  <div className="progress-track">
+                    <div
+                      className="progress-fill"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {installComplete && !installing && !progress && (
+                <div
+                  style={{
+                    marginTop: 12,
+                    padding: 10,
+                    background: "var(--tint-mint)",
+                    color: "var(--brand-green)",
+                    borderRadius: "var(--r-md)",
+                    fontSize: 12,
+                    fontWeight: 600,
+                  }}
+                >
+                  ✓ 安装完成
+                </div>
+              )}
+            </div>
+          </aside>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -412,32 +508,26 @@ function VersionRow(props: {
       style={{
         padding: "10px 16px",
         cursor: "pointer",
-        background: selected ? "var(--primary)" : "transparent",
-        color: selected ? "var(--on-primary)" : "var(--ink)",
+        background: selected ? "rgba(86, 69, 212, 0.10)" : "transparent",
+        borderLeft: selected
+          ? "3px solid var(--primary)"
+          : "3px solid transparent",
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
-        borderBottom: "1px solid var(--divider-soft)",
+        borderBottom: "1px solid var(--hairline-soft)",
       }}
     >
-      <span>
-        <span className="t-body-strong">{v.id}</span>
+      <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <span
-          className="t-caption"
-          style={{
-            marginLeft: 8,
-            opacity: selected ? 0.7 : 0.5,
-          }}
+          className="t-body-sm-medium"
+          style={{ color: selected ? "var(--primary)" : "var(--ink)" }}
         >
-          {v.kind}
+          {v.id}
         </span>
+        <span className="badge badge-tag-gray">{v.kind}</span>
       </span>
-      <span
-        className="t-caption"
-        style={{ opacity: selected ? 0.7 : 0.5 }}
-      >
-        {v.releaseTime.slice(0, 10)}
-      </span>
+      <span className="t-caption muted">{v.releaseTime.slice(0, 10)}</span>
     </div>
   );
 }

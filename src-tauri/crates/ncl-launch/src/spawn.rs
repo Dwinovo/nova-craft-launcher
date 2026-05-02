@@ -16,6 +16,21 @@ pub struct ProcessHandle {
 
 /// 启动一个游戏进程。stdout / stderr 行被逐行转发到 sink 作为 [`ProgressEvent::Log`]。
 pub async fn spawn(plan: LaunchPlan, sink: Arc<dyn ProgressSink>) -> Result<ProcessHandle> {
+    // 1. 确保 working_dir (game_dir = instances/<name>/.minecraft) 存在。
+    //    Windows 在 current_dir 指向不存在路径时会报 ERROR_DIRECTORY (267)
+    //    "目录名称无效"——错误信息却容易误导成 java.exe 路径有问题。
+    tokio::fs::create_dir_all(&plan.working_dir)
+        .await
+        .map_err(|e| Error::io(&plan.working_dir, e))?;
+
+    // 2. 校验 java_path 真实存在 (vfox 等版本管理器有时会注册但实际未下载完成)
+    if !plan.java_path.exists() {
+        return Err(Error::NotFound(format!(
+            "java.exe not found at {}; check vfox / JAVA_HOME",
+            plan.java_path.display()
+        )));
+    }
+
     let mut cmd = Command::new(&plan.java_path);
     cmd.args(&plan.jvm_args);
     cmd.arg(&plan.main_class);
