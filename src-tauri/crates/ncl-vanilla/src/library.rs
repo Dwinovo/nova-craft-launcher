@@ -81,6 +81,28 @@ pub fn library_artifacts(
                 kind,
             });
         }
+    } else if library.downloads.is_none() {
+        // 老格式 (1.12 及更早):**完全没有** downloads 字段,仅 name(GAV) +
+        // 可选 library.url。参考 HMCL `Library.computePath()` + DEFAULT_LIBRARY_URL。
+        // 注:downloads.is_some() 但 artifact.is_none() 是 *现代 native-only* 格式
+        // (主 jar 不存在,只有 classifiers),不应触发老格式回退,会在下方
+        // classifiers 分支处理。
+        if let Some(legacy) = legacy_artifact_from_name(library, libraries_root) {
+            let kind = if is_new_native {
+                ArtifactKind::Native {
+                    excludes: excludes.clone(),
+                }
+            } else {
+                ArtifactKind::Library
+            };
+            out.push(LibraryArtifact {
+                url: legacy.url,
+                target: legacy.target,
+                sha1: String::new(), // 老格式无 sha1,跳过校验
+                size: 0,
+                kind,
+            });
+        }
     }
 
     // 旧格式 natives：通过 natives map + classifiers 选择
@@ -124,6 +146,49 @@ pub fn library_artifacts(
 fn is_new_format_native(name: &str) -> bool {
     let parts: Vec<&str> = name.split(':').collect();
     parts.len() >= 4 && parts[3].starts_with("natives-")
+}
+
+/// 老 Mojang manifest（1.12 及更早）的 library 没有 `downloads.artifact` 字段，
+/// 仅靠 `name`（GAV）+ `url`（自定义 maven 根，可缺省走官方）拼出实际 URL。
+///
+/// 例：`com.google.code.gson:gson:2.2.4` →
+/// `<base>/com/google/code/gson/gson/2.2.4/gson-2.2.4.jar`
+///
+/// 参考 HMCL `Library.computePath()` + `DEFAULT_LIBRARY_URL`。
+struct LegacyArtifact {
+    url: String,
+    target: std::path::PathBuf,
+}
+
+fn legacy_artifact_from_name(library: &Library, libraries_root: &Path) -> Option<LegacyArtifact> {
+    const DEFAULT_LIBRARY_BASE: &str = "https://libraries.minecraft.net/";
+
+    let parts: Vec<&str> = library.name.split(':').collect();
+    if parts.len() < 3 {
+        return None;
+    }
+    let group = parts[0].replace('.', "/");
+    let artifact = parts[1];
+    let version = parts[2];
+    let classifier = parts.get(3).copied();
+
+    let filename = match classifier {
+        Some(c) => format!("{artifact}-{version}-{c}.jar"),
+        None => format!("{artifact}-{version}.jar"),
+    };
+    let rel_path = format!("{group}/{artifact}/{version}/{filename}");
+
+    let base = library.url.as_deref().unwrap_or(DEFAULT_LIBRARY_BASE);
+    let base = if base.ends_with('/') {
+        base.to_string()
+    } else {
+        format!("{base}/")
+    };
+
+    Some(LegacyArtifact {
+        url: format!("{base}{rel_path}"),
+        target: libraries_root.join(&rel_path),
+    })
 }
 
 #[cfg(test)]
@@ -243,6 +308,59 @@ mod tests {
         }];
         let arts = library_artifacts(&lib, &windows_ctx(), Path::new("/libs"));
         assert!(arts.is_empty());
+    }
+
+    #[test]
+    fn legacy_library_without_downloads_uses_default_maven() {
+        // 老格式: 无 downloads,仅 name → 应拼成 libraries.minecraft.net/<gav>
+        let lib = Library {
+            name: "com.google.code.gson:gson:2.2.4".into(),
+            downloads: None,
+            natives: None,
+            extract: None,
+            rules: vec![],
+            url: None,
+        };
+        let arts = library_artifacts(&lib, &linux_ctx(), Path::new("/libs"));
+        assert_eq!(arts.len(), 1);
+        assert!(
+            arts[0].url == "https://libraries.minecraft.net/com/google/code/gson/gson/2.2.4/gson-2.2.4.jar"
+        );
+        assert!(arts[0].target.ends_with("com/google/code/gson/gson/2.2.4/gson-2.2.4.jar"));
+        assert!(arts[0].sha1.is_empty()); // 老格式无 sha1
+    }
+
+    #[test]
+    fn legacy_library_with_custom_url_field() {
+        // 自定义 maven (如 OptiFine 仓库)
+        let lib = Library {
+            name: "optifine:OptiFine:1.20.1_HD_U_I6".into(),
+            downloads: None,
+            natives: None,
+            extract: None,
+            rules: vec![],
+            url: Some("https://optifine.example.com/maven/".into()),
+        };
+        let arts = library_artifacts(&lib, &linux_ctx(), Path::new("/libs"));
+        assert_eq!(arts.len(), 1);
+        assert!(arts[0].url.starts_with("https://optifine.example.com/maven/optifine/OptiFine/"));
+    }
+
+    #[test]
+    fn legacy_library_with_classifier() {
+        let lib = Library {
+            name: "org.lwjgl:lwjgl-platform:2.9.4-nightly:natives-linux".into(),
+            downloads: None,
+            natives: None,
+            extract: None,
+            rules: vec![],
+            url: None,
+        };
+        // 注:这里 classifier 是 natives-linux,is_new_format_native 会标记为 Native
+        let arts = library_artifacts(&lib, &linux_ctx(), Path::new("/libs"));
+        assert_eq!(arts.len(), 1);
+        assert!(arts[0].url.ends_with("lwjgl-platform-2.9.4-nightly-natives-linux.jar"));
+        assert!(matches!(arts[0].kind, ArtifactKind::Native { .. }));
     }
 
     #[test]

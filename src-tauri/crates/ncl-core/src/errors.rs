@@ -22,6 +22,19 @@ pub enum Error {
     #[error("network: {0}")]
     Network(String),
 
+    /// HTTP 4xx 客户端错误（除 429）。表示请求本身有问题（URL 不存在 / 权限不足），
+    /// 同镜像重试**无意义**——上层应直接换下一个镜像。
+    #[error("HTTP {status} at {url}")]
+    HttpClient { url: String, status: u16 },
+
+    /// HTTP 429 限流。`retry_after_secs` 来自服务器 `Retry-After` 头（如有）。
+    /// 上层应在该镜像本地等待 `retry_after_secs`（或固定值兜底）后**再试同镜像一次**。
+    #[error("HTTP 429 rate limited at {url} (retry after {retry_after_secs:?}s)")]
+    HttpRateLimited {
+        url: String,
+        retry_after_secs: Option<u64>,
+    },
+
     #[error("checksum mismatch (expected={expected}, actual={actual})")]
     ChecksumMismatch { expected: String, actual: String },
 

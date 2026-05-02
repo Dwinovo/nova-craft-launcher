@@ -25,6 +25,12 @@ impl Downloader {
     /// 下载 `url` 到 `target`。
     /// - 若 `expected_sha1` 提供且本地文件已存在并校验通过 → 跳过下载。
     /// - 下载完成后若 `expected_sha1` 提供，验证 SHA1。
+    ///
+    /// HTTP 状态码分类（参考 HMCL `FetchTask` 的策略 + 我们的 429 增强）：
+    /// - 2xx → 正常处理
+    /// - 4xx 除 429 → 抛 [`Error::HttpClient`],上层应跨镜像
+    /// - 429 → 抛 [`Error::HttpRateLimited`] + Retry-After 秒数,上层可选择等待重试
+    /// - 5xx / 网络错误 → 抛 [`Error::Network`],上层走重试 + 退避
     pub async fn fetch(
         &self,
         url: &str,
@@ -47,12 +53,33 @@ impl Downloader {
             .send()
             .await
             .map_err(|e| Error::Network(format!("GET {url}: {e}")))?;
-        if !resp.status().is_success() {
-            return Err(Error::Network(format!(
-                "GET {url}: HTTP {}",
-                resp.status()
-            )));
+
+        let status = resp.status();
+        if !status.is_success() {
+            let code = status.as_u16();
+            // 429 限流:读 Retry-After 头(秒)
+            if code == 429 {
+                let retry_after_secs = resp
+                    .headers()
+                    .get(reqwest::header::RETRY_AFTER)
+                    .and_then(|h| h.to_str().ok())
+                    .and_then(|s| s.trim().parse::<u64>().ok());
+                return Err(Error::HttpRateLimited {
+                    url: url.to_string(),
+                    retry_after_secs,
+                });
+            }
+            // 4xx (除 429): 客户端错误,跨镜像可能成功
+            if status.is_client_error() {
+                return Err(Error::HttpClient {
+                    url: url.to_string(),
+                    status: code,
+                });
+            }
+            // 5xx / 其他: 服务端错误或异常,走 Network 重试
+            return Err(Error::Network(format!("GET {url}: HTTP {code}")));
         }
+
         let bytes = resp
             .bytes()
             .await

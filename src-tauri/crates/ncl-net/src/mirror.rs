@@ -38,7 +38,10 @@ impl MirrorSource for BmclApiSource {
         "bmclapi"
     }
     fn rewrite(&self, url: &str) -> Option<String> {
+        // 顺序敏感:更具体的前缀放前面 (例 piston-* 在 mojang.com 通配前)。
+        // 参考 HMCL `BMCLAPIDownloadProvider.injectURL()` 的完整映射表。
         const MAPPINGS: &[(&str, &str)] = &[
+            // Mojang 元数据 / 启动器服务
             (
                 "https://piston-meta.mojang.com/",
                 "https://bmclapi2.bangbang93.com/",
@@ -55,12 +58,32 @@ impl MirrorSource for BmclApiSource {
                 "https://launcher.mojang.com/",
                 "https://bmclapi2.bangbang93.com/",
             ),
+            // Mojang 资源服务器
             (
                 "https://resources.download.minecraft.net/",
                 "https://bmclapi2.bangbang93.com/assets/",
             ),
+            // 官方 maven (vanilla libraries)
             (
                 "https://libraries.minecraft.net/",
+                "https://bmclapi2.bangbang93.com/maven/",
+            ),
+            // Fabric meta API + 自有 maven (HMCL 实测可用,我们之前漏了)
+            (
+                "https://meta.fabricmc.net/",
+                "https://bmclapi2.bangbang93.com/fabric-meta/",
+            ),
+            (
+                "https://maven.fabricmc.net/",
+                "https://bmclapi2.bangbang93.com/maven/",
+            ),
+            // Forge / NeoForge maven (统一走 /maven/ 路径,服务器自动路由)
+            (
+                "https://maven.minecraftforge.net/",
+                "https://bmclapi2.bangbang93.com/maven/",
+            ),
+            (
+                "https://maven.neoforged.net/releases/",
                 "https://bmclapi2.bangbang93.com/maven/",
             ),
         ];
@@ -167,6 +190,32 @@ mod tests {
         assert_eq!(
             s.rewrite("https://libraries.minecraft.net/org/lwjgl/x.jar"),
             Some("https://bmclapi2.bangbang93.com/maven/org/lwjgl/x.jar".to_string())
+        );
+    }
+
+    #[test]
+    fn bmclapi_rewrites_fabric_endpoints() {
+        let s = BmclApiSource;
+        assert_eq!(
+            s.rewrite("https://meta.fabricmc.net/v2/versions/loader/1.21.1"),
+            Some("https://bmclapi2.bangbang93.com/fabric-meta/v2/versions/loader/1.21.1".to_string())
+        );
+        assert_eq!(
+            s.rewrite("https://maven.fabricmc.net/net/fabricmc/fabric-loader/0.16.0/fabric-loader-0.16.0.jar"),
+            Some("https://bmclapi2.bangbang93.com/maven/net/fabricmc/fabric-loader/0.16.0/fabric-loader-0.16.0.jar".to_string())
+        );
+    }
+
+    #[test]
+    fn bmclapi_rewrites_forge_neoforge_maven() {
+        let s = BmclApiSource;
+        assert_eq!(
+            s.rewrite("https://maven.minecraftforge.net/net/minecraftforge/forge/1.20.1-47.3.0/forge-1.20.1-47.3.0-installer.jar"),
+            Some("https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/1.20.1-47.3.0/forge-1.20.1-47.3.0-installer.jar".to_string())
+        );
+        assert_eq!(
+            s.rewrite("https://maven.neoforged.net/releases/net/neoforged/neoforge/21.1.99/neoforge-21.1.99-installer.jar"),
+            Some("https://bmclapi2.bangbang93.com/maven/net/neoforged/neoforge/21.1.99/neoforge-21.1.99-installer.jar".to_string())
         );
     }
 
