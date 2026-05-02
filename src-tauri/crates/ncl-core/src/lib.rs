@@ -18,6 +18,7 @@ pub use progress::{ChannelSink, LogLevel, NullSink, ProgressEvent, ProgressSink}
 pub use model::{
     maven_ga, rules_allow, Argument, ArgumentValue, Arguments, ArtifactInfo, AssetIndex,
     AssetIndexInfo, AssetObject, DownloadInfo, EvalContext, ExtractRules, JavaVersionRequirement,
-    LatestVersions, Library, LibraryDownloads, MainDownloads, OsCondition, OsName, RawVersion,
-    ResolvedManifest, Rule, RuleAction, VersionList, VersionListEntry, VersionType,
+    LatestVersions, Library, LibraryDownloads, LoaderKind, MainDownloads, ModDep, ModEntry,
+    OsCondition, OsName, RawVersion, ResolvedManifest, Rule, RuleAction, Side, VersionList,
+    VersionListEntry, VersionType,
 };

@@ -7,6 +7,7 @@ pub mod arguments;
 pub mod assets;
 pub mod java;
 pub mod library;
+pub mod mod_entry;
 pub mod version;
 
 pub use arguments::{
@@ -16,6 +17,7 @@ pub use arguments::{
 pub use assets::{AssetIndex, AssetIndexInfo, AssetObject};
 pub use java::JavaVersionRequirement;
 pub use library::{maven_ga, ArtifactInfo, ExtractRules, Library, LibraryDownloads};
+pub use mod_entry::{LoaderKind, ModDep, ModEntry, Side};
 pub use version::{
     DownloadInfo, LatestVersions, MainDownloads, RawVersion, ResolvedManifest, VersionList,
     VersionListEntry, VersionType,

@@ -95,6 +95,48 @@ export async function installLoader(
   });
 }
 
+// ────────── Mods ──────────
+export type ModLoader = "forge" | "fabric" | "neoforge";
+export type ModSide = "client" | "server" | "both";
+
+export interface ModDep {
+  modId: string;
+  versionRange: string | null;
+  mandatory: boolean;
+  side: ModSide;
+}
+
+export interface ModEntry {
+  filePath: string;
+  enabled: boolean;
+  loader: ModLoader;
+  modId: string;
+  name: string;
+  version: string;
+  mcVersionRange: string | null;
+  authors: string[];
+  description: string | null;
+  side: ModSide;
+  dependencies: ModDep[];
+}
+
+export async function scanMods(instanceName: string): Promise<ModEntry[]> {
+  return invoke<ModEntry[]>("mod_scan", { instanceName });
+}
+
+export interface ToggleResult {
+  from: string;
+  to: string;
+  nowEnabled: boolean;
+}
+
+export async function setModEnabled(
+  filePath: string,
+  enabled: boolean
+): Promise<ToggleResult> {
+  return invoke<ToggleResult>("mod_set_enabled", { filePath, enabled });
+}
+
 // ────────── Java ──────────
 export interface JavaInfo {
   path: string;

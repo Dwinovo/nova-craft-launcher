@@ -20,6 +20,7 @@ ncl-mod = { path = "crates/ncl-mod" }
 ncl-java = { path = "crates/ncl-java" }
 ncl-launch = { path = "crates/ncl-launch" }
 
+
 # 异步运行时
 tokio = { version = "1.41", features = ["full"] }
 async-trait = "0.1"
@@ -98,5 +99,6 @@ ncl-core = { workspace = true }
 ncl-net = { workspace = true }
 ncl-vanilla = { workspace = true }
 ncl-loader = { workspace = true }
+ncl-mod = { workspace = true }
 ncl-java = { workspace = true }
 ncl-launch = { workspace = true }

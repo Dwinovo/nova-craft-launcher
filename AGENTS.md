@@ -125,22 +125,53 @@ cargo run --bin ncl                   # 运行 CLI（阶段 2 才完整）
 | **0** | 地基 — workspace + 9 crate + 核心契约 + 前端骨架 + IPC 联通 | ✅ 已完成 |
 | **1** | Vanilla 1.21.1 最小启动路径 | ✅ 已完成（待真机验证启动） |
 | **2** | BMCLAPI 镜像 + 下载稳定性 | ✅ 已完成 |
-| 3 | Forge + Fabric 支持 | ⏳ 待开始 |
-| 4 | NeoForge + Mod 管理 | ⏳ 待开始 |
-| 5 | Java 全面扫描 + 内存推荐 | ⏳ 待开始 |
+| **3a** | Fabric loader 支持 | ✅ 已完成 |
+| 3b | Forge installer | ⏳ 推迟（涉及 installer CLI 调用，等用户真机验证后做） |
+| **4a** | Mod 元数据解析 + 启用/禁用切换 | ✅ 已完成 |
+| 4b | NeoForge installer | ⏳ 推迟（同 Forge） |
+| 5 | Java 全面扫描 + 内存推荐 | ⏳ 推迟（依赖 Windows 注册表 + 真机扫描验证） |
 | 6 | CLI 骨架 + 打磨（缓冲） | ⏳ 待开始 |
 
-### Sprint 1 子任务
+### 已交付明细
 
-按子提交切分（git log --oneline 可查）：
-- **1.1** Mojang manifest 数据模型 + inheritsFrom 合并解析（13 单测）
-- **1.2** ncl-task 多阶段并行流水线 + 进度聚合（3 单测）
-- **1.3** vanilla 一键安装流水线（client.jar / libs / assets / natives，7 单测）
-- **1.4** Java MVP 扫描（JAVA_HOME + PATH，6 单测）
-- **1.5** launch 参数构建 + 离线 UUID + classpath 组装（10 单测）
-- **1.6** 进程 spawn + IPC 命令 + 前端版本列表/安装/启动 UI
+按子提交切分（`git log --oneline`）：
+- **Sprint 0** workspace + 9 crate 骨架 + 前端 Router + IPC 联通
+- **Sprint 1.1** Mojang manifest 数据模型 + inheritsFrom 合并解析（13 单测）
+- **Sprint 1.2** ncl-task 多阶段并行流水线 + 进度聚合（3 单测）
+- **Sprint 1.3** vanilla 一键安装流水线（client.jar / libs / assets / natives，6 单测）
+- **Sprint 1.4** Java MVP 扫描（JAVA_HOME + PATH，6 单测）
+- **Sprint 1.5** launch 参数构建 + 离线 UUID + classpath 组装（10 单测）
+- **Sprint 1.6** 进程 spawn + IPC 命令 + 前端版本列表/安装/启动 UI
+- **Sprint 2** BMCLAPI 镜像池 + 韧性下载器 + 设置页镜像策略 UI（8 单测）
+- **Sprint 3a** Fabric loader 接入（Fabric Meta API → 共用 vanilla install pipeline）
+- **Sprint 4a** Mod 元数据解析（mods.toml / fabric.mod.json / neoforge.mods.toml）+ `.jar.disabled` 启用/禁用 + 前端 ModsPage（10 单测）
 
-合计 **39 个单测**全过 + 2 个 #[ignore] 的真实网络/真机集成测试。
+合计 **56 个单测**全过 + 4 个 `#[ignore]` 真实网络/真机集成测试。
+
+### 端到端流程已打通
+
+可在 GUI 完成：
+1. 「实例」页搜索 1.21.1 → 选「Fabric」+ 自动选最新 stable loader → 实例名 + 用户名 → 「安装」
+2. 进度条实时更新 / 日志窗滚动
+3. 安装完成后点「启动游戏」→ Java 进程被拉起，stdout/stderr 实时回流到日志窗
+4. 退出后事件 `ncl://process_exit` 显示退出码
+5. 「Mod」页扫描实例的 mods/，识别三种格式 mod，一键启用/禁用
+6. 「设置」页切换镜像策略（Auto / 仅 BMCLAPI / 仅官方）+ 调并发数
+7. 「Java」页查看本机检测到的 Java 21+ 候选
+
+待用户真机验证：
+- `pnpm tauri dev` 实际拉起窗口（首次约 3-5 分钟编译 Tauri）
+- 真机 1.21.1 vanilla 一键装并启动进入主菜单
+- 真机 1.21.1 + Fabric 一键装并启动
+- 弱网/断网恢复
+- 含中文/空格的实例名启动
+
+未完成（推迟到用户真机后再做）：
+- Forge installer 的 processor 阶段（需调用官方 installer CLI 跑 java 进程，错误处理复杂）
+- NeoForge installer（类 Forge）
+- Java 注册表扫描（需在真机 Windows 注册表上验证）
+- CLI 入口（阶段 2，目前 `ncl-cli` 仅占位 binary）
+- AI Agent 接入（阶段 3）
 
 ---
 
