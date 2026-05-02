@@ -1,16 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  installLoader,
   installVersion,
   launchRun,
+  listLoaderVersions,
   listVersions,
   onProcessExit,
   onProgress,
+  type LoaderKind,
+  type LoaderVersion,
   type ProgressEvent,
   type VersionEntry,
   type VersionListResponse,
 } from "../lib/api";
 
 type LogLine = { source: string; level: string; message: string };
+type LoaderChoice = "vanilla" | LoaderKind;
 
 export function InstancesPage() {
   const [list, setList] = useState<VersionListResponse | null>(null);
@@ -19,6 +24,15 @@ export function InstancesPage() {
   const [selected, setSelected] = useState<string | null>(null);
   const [instanceName, setInstanceName] = useState("test-instance");
   const [username, setUsername] = useState("Player1");
+
+  // Loader state
+  const [loaderChoice, setLoaderChoice] = useState<LoaderChoice>("vanilla");
+  const [loaderVersions, setLoaderVersions] = useState<LoaderVersion[] | null>(null);
+  const [loaderVersionPick, setLoaderVersionPick] = useState<string | null>(null);
+  const [loaderLoading, setLoaderLoading] = useState(false);
+  const [loaderError, setLoaderError] = useState<string | null>(null);
+
+  // Install / launch state
   const [installing, setInstalling] = useState(false);
   const [progress, setProgress] = useState<{
     completed: number;
@@ -31,7 +45,6 @@ export function InstancesPage() {
 
   const logsRef = useRef<HTMLDivElement>(null);
 
-  // 拉版本列表
   useEffect(() => {
     listVersions(true)
       .then((r) => {
@@ -45,7 +58,27 @@ export function InstancesPage() {
       });
   }, []);
 
-  // 监听后端事件
+  // 当 MC 版本或 loader 类型变化时,刷新 loader 版本列表
+  useEffect(() => {
+    if (loaderChoice === "vanilla" || !selected) {
+      setLoaderVersions(null);
+      setLoaderVersionPick(null);
+      return;
+    }
+    setLoaderLoading(true);
+    setLoaderError(null);
+    setLoaderVersions(null);
+    setLoaderVersionPick(null);
+    listLoaderVersions(loaderChoice, selected)
+      .then((versions) => {
+        setLoaderVersions(versions);
+        const stable = versions.find((v) => v.stable) ?? versions[0];
+        setLoaderVersionPick(stable?.version ?? null);
+      })
+      .catch((e) => setLoaderError(String(e)))
+      .finally(() => setLoaderLoading(false));
+  }, [loaderChoice, selected]);
+
   useEffect(() => {
     let unlistenProgress: (() => void) | undefined;
     let unlistenExit: (() => void) | undefined;
@@ -61,7 +94,6 @@ export function InstancesPage() {
       } else if (ev.kind === "task_finished") {
         setInstalling(false);
         if (ev.success) {
-          setInstallComplete(selected);
           setProgress(null);
         } else {
           setProgress(null);
@@ -89,9 +121,8 @@ export function InstancesPage() {
       unlistenProgress?.();
       unlistenExit?.();
     };
-  }, [selected]);
+  }, []);
 
-  // 自动滚到日志底部
   useEffect(() => {
     logsRef.current?.scrollTo(0, logsRef.current.scrollHeight);
   }, [logs]);
@@ -105,12 +136,39 @@ export function InstancesPage() {
 
   async function handleInstall() {
     if (!selected || installing) return;
+    if (loaderChoice !== "vanilla" && !loaderVersionPick) {
+      setLogs((l) => [
+        ...l,
+        { source: "install", level: "error", message: "请先选择 loader 版本" },
+      ]);
+      return;
+    }
     setLogs([]);
     setInstallComplete(null);
     setInstalling(true);
     setProgress({ completed: 0, total: 1, label: "starting…" });
     try {
-      await installVersion(instanceName, selected);
+      let installedId: string;
+      if (loaderChoice === "vanilla") {
+        await installVersion(instanceName, selected);
+        installedId = selected;
+      } else {
+        installedId = await installLoader(
+          loaderChoice,
+          selected,
+          loaderVersionPick!,
+          instanceName
+        );
+      }
+      setInstallComplete(installedId);
+      setLogs((l) => [
+        ...l,
+        {
+          source: "install",
+          level: "info",
+          message: `已开始安装：${installedId}（后续进度见进度条）`,
+        },
+      ]);
     } catch (e) {
       console.error(e);
       setInstalling(false);
@@ -145,7 +203,9 @@ export function InstancesPage() {
     }
   }
 
-  const pct = progress ? Math.min(100, Math.round((progress.completed / Math.max(progress.total, 1)) * 100)) : 0;
+  const pct = progress
+    ? Math.min(100, Math.round((progress.completed / Math.max(progress.total, 1)) * 100))
+    : 0;
 
   return (
     <div>
@@ -187,13 +247,65 @@ export function InstancesPage() {
               />
             ))}
           </div>
+
+          {/* Loader 选择 */}
+          <div style={{ marginTop: 16, padding: 12, background: "#f0f0f4", borderRadius: 6 }}>
+            <div style={{ fontSize: 13, marginBottom: 8, fontWeight: 600 }}>
+              Mod 加载器
+            </div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+              {(
+                [
+                  { v: "vanilla", label: "原版", enabled: true },
+                  { v: "fabric", label: "Fabric", enabled: true },
+                  { v: "forge", label: "Forge (Sprint 3b)", enabled: false },
+                  { v: "neo_forge", label: "NeoForge (Sprint 4)", enabled: false },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.v}
+                  onClick={() => opt.enabled && setLoaderChoice(opt.v)}
+                  style={loaderTabStyle(loaderChoice === opt.v, !opt.enabled)}
+                  disabled={!opt.enabled}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {loaderChoice !== "vanilla" && (
+              <div>
+                {loaderLoading && <span style={{ fontSize: 12 }}>加载 loader 版本…</span>}
+                {loaderError && (
+                  <span style={{ fontSize: 12, color: "#d44" }}>错误：{loaderError}</span>
+                )}
+                {loaderVersions && (
+                  <select
+                    value={loaderVersionPick ?? ""}
+                    onChange={(e) => setLoaderVersionPick(e.target.value)}
+                    style={{ ...inputStyle, minWidth: 220 }}
+                  >
+                    {loaderVersions.map((lv) => (
+                      <option key={lv.version} value={lv.version}>
+                        {lv.version} {lv.stable ? "(stable)" : "(beta)"}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+          </div>
+
           <div style={{ marginTop: 16, display: "flex", gap: 8, alignItems: "center" }}>
             <button
               onClick={handleInstall}
               disabled={!selected || installing}
               style={btnStyle(!selected || installing)}
             >
-              {installing ? "安装中…" : `安装 ${selected ?? ""}`}
+              {installing
+                ? "安装中…"
+                : loaderChoice === "vanilla"
+                ? `安装原版 ${selected ?? ""}`
+                : `安装 ${loaderChoice} ${loaderVersionPick ?? ""} (${selected ?? ""})`}
             </button>
             <button
               onClick={handleLaunch}
@@ -280,6 +392,18 @@ function btnStyle(disabled: boolean): React.CSSProperties {
     borderRadius: 6,
     cursor: disabled ? "not-allowed" : "pointer",
     fontSize: 14,
+  };
+}
+
+function loaderTabStyle(active: boolean, disabled: boolean): React.CSSProperties {
+  return {
+    padding: "5px 12px",
+    background: active ? "#396cd8" : disabled ? "#e0e0e4" : "transparent",
+    color: active ? "white" : disabled ? "#a8a8b0" : "#1a1a1f",
+    border: active ? "1px solid #396cd8" : "1px solid #cfcfd4",
+    borderRadius: 4,
+    cursor: disabled ? "not-allowed" : "pointer",
+    fontSize: 12,
   };
 }
 

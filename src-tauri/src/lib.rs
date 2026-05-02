@@ -41,6 +41,8 @@ pub fn run() {
             ipc::core::core_set_config,
             ipc::vanilla::vanilla_list_versions,
             ipc::vanilla::vanilla_install,
+            ipc::loader::loader_list_versions,
+            ipc::loader::loader_install,
             ipc::java::java_scan,
             ipc::launch::launch_run,
         ])

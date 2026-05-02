@@ -97,5 +97,6 @@ uuid = { workspace = true }
 ncl-core = { workspace = true }
 ncl-net = { workspace = true }
 ncl-vanilla = { workspace = true }
+ncl-loader = { workspace = true }
 ncl-java = { workspace = true }
 ncl-launch = { workspace = true }

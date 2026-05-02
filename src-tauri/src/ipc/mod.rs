@@ -6,5 +6,6 @@
 pub mod core;
 pub mod java;
 pub mod launch;
+pub mod loader;
 pub mod sink;
 pub mod vanilla;

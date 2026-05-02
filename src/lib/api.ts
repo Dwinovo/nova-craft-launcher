@@ -65,6 +65,36 @@ export async function installVersion(
   return invoke<string>("vanilla_install", { instanceName, versionId });
 }
 
+// ────────── Loader (Fabric / Forge / NeoForge) ──────────
+export type LoaderKind = "fabric" | "forge" | "neo_forge";
+
+export interface LoaderVersion {
+  version: string;
+  stable: boolean;
+}
+
+export async function listLoaderVersions(
+  kind: LoaderKind,
+  mcVersion: string
+): Promise<LoaderVersion[]> {
+  return invoke<LoaderVersion[]>("loader_list_versions", { kind, mcVersion });
+}
+
+/** 启动 loader 安装；返回 mergedVersionId（前端用此 id 后续传给 launchRun）。 */
+export async function installLoader(
+  kind: LoaderKind,
+  mcVersion: string,
+  loaderVersion: string,
+  instanceName: string
+): Promise<string> {
+  return invoke<string>("loader_install", {
+    kind,
+    mcVersion,
+    loaderVersion,
+    instanceName,
+  });
+}
+
 // ────────── Java ──────────
 export interface JavaInfo {
   path: string;
