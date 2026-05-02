@@ -151,6 +151,22 @@ export async function scanJava(): Promise<JavaInfo[]> {
   return invoke<JavaInfo[]>("java_scan");
 }
 
+export interface MemoryRecommendation {
+  minMb: number;
+  maxMb: number;
+  systemTotalMb: number;
+}
+
+export async function recommendMemory(
+  hasLoader: boolean,
+  modCount: number
+): Promise<MemoryRecommendation> {
+  return invoke<MemoryRecommendation>("java_recommend_memory", {
+    hasLoader,
+    modCount,
+  });
+}
+
 // ────────── Launch ──────────
 export interface LaunchRequest {
   instanceName: string;

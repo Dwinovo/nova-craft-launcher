@@ -1,14 +1,18 @@
+//! Java 扫描入口。汇集 JAVA_HOME / PATH / well-known dirs / 注册表 /
+//! Mojang JRE 等多源候选，dedupe 后逐一探测版本。
+
+use crate::dirs::{scan_mojang_jre, scan_one_root, well_known_roots};
 use crate::model::{Arch, JavaRuntime, JavaSource};
+use crate::registry::scan_registry;
+use crate::release::parse_release_file;
 use ncl_core::{Error, Result};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-/// MVP 扫描：JAVA_HOME + PATH。
-///
-/// Sprint 5 会扩展到注册表 + Adoptium / Microsoft / Zulu / Liberica 默认目录 +
-/// Mojang JRE (`.minecraft/runtime`)。
-pub async fn scan_all() -> Vec<JavaRuntime> {
-    let candidates = collect_candidates();
+/// 扫所有源。`extra_dirs` 通常传 NCL 数据根目录用于扫描 Mojang JRE
+/// （`<data_root>/runtime/...`）；可空。
+pub async fn scan_all_with(extra_data_roots: &[PathBuf]) -> Vec<JavaRuntime> {
+    let candidates = collect_candidates(extra_data_roots);
     let mut seen: HashSet<PathBuf> = HashSet::new();
     let mut out = Vec::new();
 
@@ -18,7 +22,10 @@ pub async fn scan_all() -> Vec<JavaRuntime> {
             continue;
         }
         match detect_version(&canonical).await {
-            Ok(rt) => out.push(JavaRuntime { source, ..rt }),
+            Ok(mut rt) => {
+                rt.source = source;
+                out.push(rt);
+            }
             Err(e) => {
                 tracing::debug!(?canonical, %e, "java probe failed; skipped");
             }
@@ -27,19 +34,29 @@ pub async fn scan_all() -> Vec<JavaRuntime> {
     out.sort_by(|a, b| {
         b.version_major
             .cmp(&a.version_major)
+            .then_with(|| (a.source as u8).cmp(&(b.source as u8)))
             .then_with(|| a.path.cmp(&b.path))
     });
     out
 }
 
-fn collect_candidates() -> Vec<(PathBuf, JavaSource)> {
+/// 兼容 Sprint 1.4 的 API：仅 JAVA_HOME + PATH。等价于 `scan_all_with(&[])` 的子集。
+pub async fn scan_all() -> Vec<JavaRuntime> {
+    scan_all_with(&[]).await
+}
+
+fn collect_candidates(extra_data_roots: &[PathBuf]) -> Vec<(PathBuf, JavaSource)> {
     let mut v = Vec::new();
+
+    // 1. JAVA_HOME
     if let Some(jh) = std::env::var_os("JAVA_HOME") {
         let p = PathBuf::from(jh).join("bin").join(java_exe_name());
         if p.is_file() {
             v.push((p, JavaSource::JavaHome));
         }
     }
+
+    // 2. PATH
     if let Some(path) = std::env::var_os("PATH") {
         for dir in std::env::split_paths(&path) {
             let p = dir.join(java_exe_name());
@@ -48,6 +65,24 @@ fn collect_candidates() -> Vec<(PathBuf, JavaSource)> {
             }
         }
     }
+
+    // 3. 厂商默认目录
+    for (root, source) in well_known_roots() {
+        for exe in scan_one_root(&root) {
+            v.push((exe, source));
+        }
+    }
+
+    // 4. Windows 注册表
+    v.extend(scan_registry());
+
+    // 5. Mojang JRE（NCL 数据根目录下 runtime/）
+    for data_root in extra_data_roots {
+        for exe in scan_mojang_jre(data_root) {
+            v.push((exe, JavaSource::MojangJre));
+        }
+    }
+
     v
 }
 
@@ -65,10 +100,36 @@ fn canonical_or_self(p: &Path) -> PathBuf {
     std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf())
 }
 
-/// 探测 `java_path` 指向的 JRE 信息：执行 `java -version`，从 stderr 解析。
+/// 探测 `java_path` 指向的 JRE 信息。
 ///
-/// Java 历史原因：`-version` 输出走 **stderr**，不是 stdout。
+/// 策略：
+/// 1. 先尝试读 `<java_home>/release` 文件（快、无需启动 JVM）
+/// 2. 失败则回退到执行 `java -version`
 pub async fn detect_version(java_path: &Path) -> Result<JavaRuntime> {
+    if let Some(rt) = detect_via_release_file(java_path) {
+        return Ok(rt);
+    }
+    detect_via_command(java_path).await
+}
+
+fn detect_via_release_file(java_path: &Path) -> Option<JavaRuntime> {
+    // java_path = .../bin/java[.exe] → java_home = parent.parent
+    let java_home = java_path.parent()?.parent()?;
+    let info = parse_release_file(java_home)?;
+    let full = info.java_version.clone()?;
+    let major = parse_major(&full);
+    let arch = info.arch();
+    Some(JavaRuntime {
+        path: java_path.to_path_buf(),
+        version_major: major,
+        version_full: full,
+        vendor: info.vendor.unwrap_or_else(|| "Unknown".into()),
+        arch,
+        source: JavaSource::Manual, // 调用方覆盖
+    })
+}
+
+async fn detect_via_command(java_path: &Path) -> Result<JavaRuntime> {
     let output = tokio::process::Command::new(java_path)
         .arg("-version")
         .output()
@@ -81,7 +142,6 @@ pub async fn detect_version(java_path: &Path) -> Result<JavaRuntime> {
             output.status
         )));
     }
-    // -version 走 stderr
     let stderr = String::from_utf8_lossy(&output.stderr);
     parse_java_version_output(&stderr).map(|info| JavaRuntime {
         path: java_path.to_path_buf(),
@@ -89,7 +149,7 @@ pub async fn detect_version(java_path: &Path) -> Result<JavaRuntime> {
         version_full: info.full,
         vendor: info.vendor,
         arch: info.arch,
-        source: JavaSource::Path,
+        source: JavaSource::Manual,
     })
 }
 
@@ -101,18 +161,9 @@ struct ParsedVersion {
     arch: Arch,
 }
 
-/// 解析 `java -version` 的 stderr 输出。
-///
-/// 典型输入：
-/// ```text
-/// openjdk version "21.0.2" 2024-01-16 LTS
-/// OpenJDK Runtime Environment Temurin-21.0.2+13 (build 21.0.2+13-LTS)
-/// OpenJDK 64-Bit Server VM Temurin-21.0.2+13 (build 21.0.2+13-LTS, mixed mode, sharing)
-/// ```
 fn parse_java_version_output(output: &str) -> Result<ParsedVersion> {
     let lines: Vec<&str> = output.lines().collect();
 
-    // 第一行：`<vendor-prefix> version "<x>"`
     let first = lines
         .first()
         .ok_or_else(|| Error::Task("empty -version output".into()))?;
@@ -120,7 +171,6 @@ fn parse_java_version_output(output: &str) -> Result<ParsedVersion> {
         .ok_or_else(|| Error::Task(format!("cannot parse version line: {first}")))?;
     let major = parse_major(&full);
 
-    // 第二行（可选）："<vendor> Runtime Environment ..."；缺失时回退第一行的开头
     let vendor = lines
         .get(1)
         .and_then(|l| l.split(" Runtime Environment").next())
@@ -130,7 +180,6 @@ fn parse_java_version_output(output: &str) -> Result<ParsedVersion> {
         .unwrap_or("Unknown")
         .to_string();
 
-    // 第三行（可选）："... <64-Bit|32-Bit> ..."
     let arch = lines
         .get(2)
         .map(|l| {
@@ -162,7 +211,7 @@ fn extract_quoted(line: &str) -> Option<String> {
 }
 
 /// `1.8.0_312` → 8；`21.0.2` → 21；`9` → 9。
-fn parse_major(version: &str) -> u8 {
+pub(crate) fn parse_major(version: &str) -> u8 {
     let stripped = version.strip_prefix("1.").unwrap_or(version);
     stripped
         .split(|c: char| c == '.' || c == '_' || c == '-' || c == '+')
@@ -192,11 +241,7 @@ mod tests {
         let parsed = parse_java_version_output(output).unwrap();
         assert_eq!(parsed.major, 21);
         assert_eq!(parsed.full, "21.0.2");
-        assert!(
-            parsed.vendor.starts_with("OpenJDK"),
-            "vendor was {:?}",
-            parsed.vendor
-        );
+        assert!(parsed.vendor.starts_with("OpenJDK"));
         assert_eq!(parsed.arch, Arch::X64);
     }
 
@@ -211,14 +256,21 @@ mod tests {
         assert_eq!(parsed.arch, Arch::X64);
     }
 
-    /// 真实环境探测当前机器上的 Java（如有）。
+    /// 端到端真机扫描：枚举本机所有 Java。
+    /// `cargo test -p ncl-java -- --ignored --nocapture`
     #[tokio::test]
     #[ignore]
-    async fn live_scan_returns_at_least_one_jdk() {
-        let runtimes = scan_all().await;
+    async fn live_scan_all_with_real_machine() {
+        let runtimes = scan_all_with(&[]).await;
         eprintln!("found {} java runtimes:", runtimes.len());
         for rt in &runtimes {
-            eprintln!("  {:?}", rt);
+            eprintln!(
+                "  major={} vendor={} source={:?} path={}",
+                rt.version_major,
+                rt.vendor,
+                rt.source,
+                rt.path.display()
+            );
         }
     }
 }

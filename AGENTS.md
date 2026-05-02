@@ -129,7 +129,7 @@ cargo run --bin ncl                   # 运行 CLI（阶段 2 才完整）
 | 3b | Forge installer | ⏳ 推迟（涉及 installer CLI 调用，等用户真机验证后做） |
 | **4a** | Mod 元数据解析 + 启用/禁用切换 | ✅ 已完成 |
 | 4b | NeoForge installer | ⏳ 推迟（同 Forge） |
-| 5 | Java 全面扫描 + 内存推荐 | ⏳ 推迟（依赖 Windows 注册表 + 真机扫描验证） |
+| **5** | Java 全面扫描 + 内存推荐 | ✅ 已完成 |
 | 6 | CLI 骨架 + 打磨（缓冲） | ⏳ 待开始 |
 
 ### 已交付明细

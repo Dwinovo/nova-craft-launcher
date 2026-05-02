@@ -1,7 +1,9 @@
-//! Java 相关 IPC：扫描本机 Java + 推荐选择。
+//! Java 相关 IPC：扫描本机 Java + 内存推荐。
 
-use ncl_java::{scan_all, JavaRuntime};
+use crate::AppState;
+use ncl_java::{recommend_memory, scan_all_with, JavaRuntime, MemoryRecommendation};
 use serde::Serialize;
+use tauri::State;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -33,9 +35,20 @@ impl From<JavaRuntime> for JavaInfo {
     }
 }
 
-/// 扫描本机所有 Java 运行时。MVP：JAVA_HOME + PATH。
+/// 扫描本机所有 Java 运行时（多源：JAVA_HOME / PATH / 厂商默认目录 /
+/// Windows 注册表 / Mojang JRE）。
 #[tauri::command]
-pub async fn java_scan() -> Result<Vec<JavaInfo>, String> {
-    let runtimes = scan_all().await;
+pub async fn java_scan(state: State<'_, AppState>) -> Result<Vec<JavaInfo>, String> {
+    let extra = vec![state.layout.data_root.clone()];
+    let runtimes = scan_all_with(&extra).await;
     Ok(runtimes.into_iter().map(JavaInfo::from).collect())
+}
+
+/// 内存推荐。
+#[tauri::command]
+pub async fn java_recommend_memory(
+    has_loader: bool,
+    mod_count: usize,
+) -> Result<MemoryRecommendation, String> {
+    Ok(recommend_memory(has_loader, mod_count))
 }

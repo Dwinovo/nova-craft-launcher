@@ -46,6 +46,7 @@ pub fn run() {
             ipc::mods::mod_scan,
             ipc::mods::mod_set_enabled,
             ipc::java::java_scan,
+            ipc::java::java_recommend_memory,
             ipc::launch::launch_run,
         ])
         .run(tauri::generate_context!())
