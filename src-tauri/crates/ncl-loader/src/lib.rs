@@ -7,8 +7,10 @@
 pub mod fabric;
 pub mod forge;
 pub mod model;
+pub mod neoforge;
 pub mod profile_lib;
 
 pub use fabric::FabricLoader;
 pub use forge::install_forge;
 pub use model::{LoaderInstallResult, LoaderKind, LoaderVersion};
+pub use neoforge::install_neoforge;

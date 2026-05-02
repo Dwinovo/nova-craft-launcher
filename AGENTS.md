@@ -126,9 +126,9 @@ cargo run --bin ncl                   # 运行 CLI（阶段 2 才完整）
 | **1** | Vanilla 1.21.1 最小启动路径 | ✅ 已完成（待真机验证启动） |
 | **2** | BMCLAPI 镜像 + 下载稳定性 | ✅ 已完成 |
 | **3a** | Fabric loader 支持 | ✅ 已完成 |
-| 3b | Forge installer | ⏳ 推迟（涉及 installer CLI 调用，等用户真机验证后做） |
+| **3b** | Forge installer | ✅ 已完成（待真机验证 processors 流程） |
 | **4a** | Mod 元数据解析 + 启用/禁用切换 | ✅ 已完成 |
-| 4b | NeoForge installer | ⏳ 推迟（同 Forge） |
+| **4b** | NeoForge installer | ✅ 已完成（复用 Forge 引擎） |
 | **5** | Java 全面扫描 + 内存推荐 | ✅ 已完成 |
 | 6 | CLI 骨架 + 打磨（缓冲） | ⏳ 待开始 |
 

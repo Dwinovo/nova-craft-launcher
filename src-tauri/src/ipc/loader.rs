@@ -1,12 +1,13 @@
 //! Mod loader 相关 IPC：版本列表 + 一键安装。
-//! Sprint 3a 实现 Fabric；Sprint 3b 实现 Forge。
+//! Sprint 3a Fabric / 3b Forge / 4b NeoForge。
 
 use crate::ipc::sink::TauriEventSink;
 use crate::AppState;
 use ncl_core::progress::ProgressSink;
 use ncl_core::MirrorPolicy;
-use ncl_java::{scan_all_with, select_best};
+use ncl_java::{scan_all_with, select_best, JavaRuntime};
 use ncl_loader::forge::{install_forge, list_versions as list_forge_versions};
+use ncl_loader::neoforge::{install_neoforge, list_versions as list_neoforge_versions};
 use ncl_loader::{FabricLoader, LoaderKind, LoaderVersion};
 use ncl_net::{BmclApiSource, Downloader, MirrorPool, OfficialSource, ResilientDownloader};
 use ncl_vanilla::{
@@ -48,7 +49,10 @@ pub async fn loader_list_versions(
             .await
             .map(|v| v.into_iter().map(LoaderVersionDto::from).collect())
             .map_err(|e| e.to_string()),
-        LoaderKind::NeoForge => Err("NeoForge 加载器尚未实现 (Sprint 4b)".to_string()),
+        LoaderKind::NeoForge => list_neoforge_versions(&client, &mc_version)
+            .await
+            .map(|v| v.into_iter().map(LoaderVersionDto::from).collect())
+            .map_err(|e| e.to_string()),
     }
 }
 
@@ -62,15 +66,35 @@ pub async fn loader_install(
     instance_name: String,
 ) -> Result<String, String> {
     match kind {
-        LoaderKind::Fabric => install_fabric(app, state, mc_version, loader_version, instance_name).await,
-        LoaderKind::Forge => install_forge_loader(app, state, mc_version, loader_version, instance_name).await,
-        LoaderKind::NeoForge => Err("NeoForge installer 尚未实现 (Sprint 4b)".to_string()),
+        LoaderKind::Fabric => {
+            install_fabric_dispatch(app, state, mc_version, loader_version, instance_name).await
+        }
+        LoaderKind::Forge => {
+            install_installer_dispatch(
+                app,
+                state,
+                LoaderKind::Forge,
+                mc_version,
+                loader_version,
+                instance_name,
+            )
+            .await
+        }
+        LoaderKind::NeoForge => {
+            install_installer_dispatch(
+                app,
+                state,
+                LoaderKind::NeoForge,
+                mc_version,
+                loader_version,
+                instance_name,
+            )
+            .await
+        }
     }
 }
 
-// ─────────── Fabric ───────────
-
-async fn install_fabric(
+async fn install_fabric_dispatch(
     app: AppHandle,
     state: State<'_, AppState>,
     mc_version: String,
@@ -117,13 +141,12 @@ async fn install_fabric(
     Ok(merged_id)
 }
 
-// ─────────── Forge ───────────
-
-async fn install_forge_loader(
+async fn install_installer_dispatch(
     app: AppHandle,
     state: State<'_, AppState>,
+    kind: LoaderKind,
     mc_version: String,
-    forge_version: String,
+    loader_version: String,
     instance_name: String,
 ) -> Result<String, String> {
     let layout = state.layout.clone();
@@ -135,35 +158,29 @@ async fn install_forge_loader(
     let pool = Arc::new(build_pool(policy));
     let client = default_client().map_err(|e| e.to_string())?;
 
-    // 拉 vanilla manifest 列表（install_forge 内部还要用它解析 inheritsFrom）
+    // 拉 vanilla manifest 列表
     let list = fetch_version_list(&client, Some(&pool))
         .await
         .map_err(|e| format!("fetch vanilla manifest: {e}"))?;
 
-    // 选 Java（基于 MC 版本对应的 javaVersion 要求；Forge 1.18+ 通常需要 17+，
-    // Forge 1.20.5+ 需要 21）
-    let required_major = match mc_version.as_str() {
-        v if v.starts_with("1.16") => 8,
-        v if v.starts_with("1.17") => 16,
-        v if v.starts_with("1.20.5") || v.starts_with("1.21") => 21,
-        _ => 17, // 1.18 / 1.19 / 1.20.0~1.20.4 默认
-    };
+    // 选 Java
+    let required_major = required_java_for_mc(&mc_version);
     let extra = vec![layout.data_root.clone()];
     let candidates = scan_all_with(&extra).await;
-    let java = select_best(&candidates, required_major)
+    let java: JavaRuntime = select_best(&candidates, required_major)
         .ok_or_else(|| {
-            format!(
-                "未发现满足 Java {required_major}+ 的 JRE。请安装 JDK {required_major} 后重试。"
-            )
+            format!("未发现满足 Java {required_major}+ 的 JRE。请安装 JDK {required_major} 后重试。")
         })?
         .clone();
 
-    let merged_id = format!("{mc_version}-forge-{forge_version}");
+    let merged_id = match kind {
+        LoaderKind::Forge => format!("{mc_version}-forge-{loader_version}"),
+        LoaderKind::NeoForge => format!("{mc_version}-neoforge-{loader_version}"),
+        LoaderKind::Fabric => unreachable!("handled by install_fabric_dispatch"),
+    };
+    let merged_id_for_task = merged_id.clone();
 
     let app_clone = app.clone();
-    let mc_version_owned = mc_version.clone();
-    let forge_version_owned = forge_version.clone();
-    let instance_owned = instance_name.clone();
     tokio::spawn(async move {
         let sink: Arc<dyn ProgressSink> = Arc::new(TauriEventSink::new(app_clone.clone()));
         let downloader = match Downloader::new() {
@@ -174,25 +191,45 @@ async fn install_forge_loader(
             }
         };
 
-        match install_forge(
-            &mc_version_owned,
-            &forge_version_owned,
-            &instance_owned,
-            &layout,
-            &list,
-            &java,
-            downloader,
-            sink.clone(),
-            concurrency,
-        )
-        .await
-        {
-            Ok(out) => tracing::info!(merged = %out.merged_version_id, "forge install finished"),
+        let result = match kind {
+            LoaderKind::Forge => {
+                install_forge(
+                    &mc_version,
+                    &loader_version,
+                    &instance_name,
+                    &layout,
+                    &list,
+                    &java,
+                    downloader,
+                    sink.clone(),
+                    concurrency,
+                )
+                .await
+            }
+            LoaderKind::NeoForge => {
+                install_neoforge(
+                    &mc_version,
+                    &loader_version,
+                    &instance_name,
+                    &layout,
+                    &list,
+                    &java,
+                    downloader,
+                    sink.clone(),
+                    concurrency,
+                )
+                .await
+            }
+            LoaderKind::Fabric => unreachable!(),
+        };
+
+        match result {
+            Ok(out) => tracing::info!(merged = %out.merged_version_id, "loader install finished"),
             Err(e) => {
-                tracing::error!(%e, "forge install failed");
+                tracing::error!(%e, "loader install failed");
                 let _ = sink
                     .emit(ncl_core::progress::ProgressEvent::TaskFinished {
-                        task_id: "forge-install".into(),
+                        task_id: format!("loader-install-{}", merged_id_for_task),
                         success: false,
                         error: Some(e.to_string()),
                     })
@@ -202,6 +239,20 @@ async fn install_forge_loader(
     });
 
     Ok(merged_id)
+}
+
+fn required_java_for_mc(mc_version: &str) -> u8 {
+    match mc_version {
+        v if v.starts_with("1.16") => 8,
+        v if v.starts_with("1.17") => 16,
+        v if v.starts_with("1.20.5")
+            || v.starts_with("1.20.6")
+            || v.starts_with("1.21") =>
+        {
+            21
+        }
+        _ => 17,
+    }
 }
 
 fn build_pool(policy: MirrorPolicy) -> MirrorPool {

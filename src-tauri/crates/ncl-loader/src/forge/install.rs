@@ -34,8 +34,7 @@ pub struct ForgeInstallOutput {
     pub patched_client_jar: PathBuf,
 }
 
-/// 安装 Forge 整个流程的高层入口。前置：调用方已通过 vanilla manifest 列表
-/// 拿到了对应 MC 版本（用于 inheritsFrom 解析）。
+/// 安装 Forge 的便捷入口。
 #[allow(clippy::too_many_arguments)]
 pub async fn install_forge(
     mc_version: &str,
@@ -48,22 +47,52 @@ pub async fn install_forge(
     sink: Arc<dyn ProgressSink>,
     concurrency: usize,
 ) -> Result<ForgeInstallOutput> {
-    // 路径准备
     let merged_id = format!("{mc_version}-forge-{forge_version}");
-    let install_paths = InstallPaths::new(layout, instance_name, &merged_id);
-    let cache_dir = layout.cache().join("forge").join(&merged_id);
+    let installer_url = forge_installer_url(mc_version, forge_version);
+    install_from_installer(
+        &installer_url,
+        &merged_id,
+        "forge",
+        instance_name,
+        layout,
+        vanilla_list,
+        java,
+        downloader,
+        sink,
+        concurrency,
+    )
+    .await
+}
+
+/// 通用 Forge 风格 installer 安装：Forge 与 NeoForge 共用此实现，仅
+/// `installer_url` / `merged_id` / `cache_namespace` 不同。
+#[allow(clippy::too_many_arguments)]
+pub async fn install_from_installer(
+    installer_url: &str,
+    merged_id: &str,
+    cache_namespace: &str,
+    instance_name: &str,
+    layout: &ncl_core::PathLayout,
+    vanilla_list: &ncl_core::VersionList,
+    java: &JavaRuntime,
+    downloader: Arc<ResilientDownloader>,
+    sink: Arc<dyn ProgressSink>,
+    concurrency: usize,
+) -> Result<ForgeInstallOutput> {
+    // 路径准备
+    let install_paths = InstallPaths::new(layout, instance_name, merged_id);
+    let cache_dir = layout.cache().join(cache_namespace).join(merged_id);
     tokio::fs::create_dir_all(&cache_dir)
         .await
         .map_err(|e| Error::io(&cache_dir, e))?;
 
     // 1. 下载 installer
-    let installer_url = forge_installer_url(mc_version, forge_version);
     let installer_path = cache_dir.join("installer.jar");
-    log_info(&sink, "forge.install", "下载 Forge installer…").await;
-    downloader.fetch(&installer_url, &installer_path, None).await?;
+    log_info(&sink, "loader.install", "下载 installer…").await;
+    downloader.fetch(installer_url, &installer_path, None).await?;
 
     // 2 + 3 + 4. 解压 installer
-    log_info(&sink, "forge.install", "解压 installer…").await;
+    log_info(&sink, "loader.install", "解压 installer…").await;
     let unpacked = unpack_installer(&installer_path, &cache_dir, &install_paths.libraries_dir)?;
 
     // 5. 解析 install_profile + version_json
@@ -87,11 +116,11 @@ pub async fn install_forge(
     let resolved = current.into_resolved(chain)?;
 
     // 7. 跑 vanilla install pipeline 下载基础 libraries / assets / client.jar
-    log_info(&sink, "forge.install", "下载 vanilla 基础库与 assets…").await;
+    log_info(&sink, "loader.install", "下载 vanilla 基础库与 assets…").await;
     vanilla_install(&resolved, &install_paths, downloader.clone(), sink.clone(), concurrency).await?;
 
     // 8. 下载 install_profile.libraries（Forge processor 自己依赖的库）
-    log_info(&sink, "forge.install", "下载 Forge 安装阶段依赖库…").await;
+    log_info(&sink, "loader.install", "下载 loader 安装阶段依赖库…").await;
     download_profile_libraries(&profile.libraries, &install_paths.libraries_dir, &downloader)
         .await?;
 
@@ -145,7 +174,7 @@ pub async fn install_forge(
     let total = profile.processors.iter().filter(|p| p.applies_to_client()).count();
     log_info(
         &sink,
-        "forge.install",
+        "loader.install",
         &format!("执行 {total} 个 processors（每个会启动一次 java）…"),
     )
     .await;
@@ -157,7 +186,7 @@ pub async fn install_forge(
         .enumerate()
     {
         let label = format!("processor {}/{total}: {}", idx + 1, processor.jar);
-        log_info(&sink, "forge.processor", &label).await;
+        log_info(&sink, "loader.processor", &label).await;
         run_one_processor(
             processor,
             &processor_data,
@@ -177,7 +206,7 @@ pub async fn install_forge(
         .map_err(|e| Error::io(install_paths.version_json(), e))?;
 
     Ok(ForgeInstallOutput {
-        merged_version_id: merged_id,
+        merged_version_id: merged_id.to_string(),
         resolved_manifest: resolved,
         patched_client_jar: install_paths.client_jar(),
     })
@@ -232,7 +261,7 @@ async fn run_one_processor(
             while let Ok(Some(line)) = lines.next_line().await {
                 sink2
                     .emit(ProgressEvent::Log {
-                        source: "forge.processor.stdout".into(),
+                        source: "loader.processor.stdout".into(),
                         level: LogLevel::Debug,
                         message: line,
                     })
@@ -247,7 +276,7 @@ async fn run_one_processor(
             while let Ok(Some(line)) = lines.next_line().await {
                 sink2
                     .emit(ProgressEvent::Log {
-                        source: "forge.processor.stderr".into(),
+                        source: "loader.processor.stderr".into(),
                         level: LogLevel::Warn,
                         message: line,
                     })

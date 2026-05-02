@@ -17,5 +17,5 @@ pub mod processor;
 pub mod profile;
 
 pub use api::{forge_installer_url, list_versions, ForgeBuildEntry};
-pub use install::install_forge;
+pub use install::{install_forge, install_from_installer, ForgeInstallOutput};
 pub use profile::{InstallProfile, Processor as ProfileProcessor};
