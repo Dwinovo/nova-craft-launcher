@@ -258,8 +258,8 @@ export function InstancesPage() {
                 [
                   { v: "vanilla", label: "原版", enabled: true },
                   { v: "fabric", label: "Fabric", enabled: true },
-                  { v: "forge", label: "Forge (Sprint 3b)", enabled: false },
-                  { v: "neo_forge", label: "NeoForge (Sprint 4)", enabled: false },
+                  { v: "forge", label: "Forge", enabled: true },
+                  { v: "neo_forge", label: "NeoForge (Sprint 4b)", enabled: false },
                 ] as const
               ).map((opt) => (
                 <button

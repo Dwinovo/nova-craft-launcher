@@ -2325,9 +2325,11 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "ncl-core",
+ "ncl-java",
  "ncl-net",
  "ncl-task",
  "ncl-vanilla",
+ "reqwest 0.12.28",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -2377,20 +2379,24 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
 name = "ncl-vanilla"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "ncl-core",
  "ncl-net",
  "ncl-task",
+ "reqwest 0.12.28",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
+ "zip",
 ]
 
 [[package]]
@@ -2428,8 +2434,14 @@ name = "nova-craft-launcher"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "ncl-core",
+ "ncl-java",
+ "ncl-launch",
+ "ncl-loader",
+ "ncl-mod",
  "ncl-net",
+ "ncl-vanilla",
  "serde",
  "serde_json",
  "tauri",
@@ -2438,6 +2450,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]

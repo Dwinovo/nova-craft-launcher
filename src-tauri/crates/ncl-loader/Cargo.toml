@@ -13,6 +13,7 @@ ncl-core = { workspace = true }
 ncl-net = { workspace = true }
 ncl-task = { workspace = true }
 ncl-vanilla = { workspace = true }
+ncl-java = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
