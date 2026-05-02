@@ -123,12 +123,24 @@ cargo run --bin ncl                   # 运行 CLI（阶段 2 才完整）
 | Sprint | 主题 | 状态 |
 |---|---|---|
 | **0** | 地基 — workspace + 9 crate + 核心契约 + 前端骨架 + IPC 联通 | ✅ 已完成 |
-| 1 | Vanilla 1.21.1 最小启动路径 | ⏳ 待开始 |
+| **1** | Vanilla 1.21.1 最小启动路径 | ✅ 已完成（待真机验证启动） |
 | 2 | BMCLAPI 镜像 + 下载稳定性 | ⏳ 待开始 |
 | 3 | Forge + Fabric 支持 | ⏳ 待开始 |
 | 4 | NeoForge + Mod 管理 | ⏳ 待开始 |
 | 5 | Java 全面扫描 + 内存推荐 | ⏳ 待开始 |
 | 6 | CLI 骨架 + 打磨（缓冲） | ⏳ 待开始 |
+
+### Sprint 1 子任务
+
+按子提交切分（git log --oneline 可查）：
+- **1.1** Mojang manifest 数据模型 + inheritsFrom 合并解析（13 单测）
+- **1.2** ncl-task 多阶段并行流水线 + 进度聚合（3 单测）
+- **1.3** vanilla 一键安装流水线（client.jar / libs / assets / natives，7 单测）
+- **1.4** Java MVP 扫描（JAVA_HOME + PATH，6 单测）
+- **1.5** launch 参数构建 + 离线 UUID + classpath 组装（10 单测）
+- **1.6** 进程 spawn + IPC 命令 + 前端版本列表/安装/启动 UI
+
+合计 **39 个单测**全过 + 2 个 #[ignore] 的真实网络/真机集成测试。
 
 ---
 

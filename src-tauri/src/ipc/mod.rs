@@ -4,3 +4,7 @@
 //! 转发给前端。**业务逻辑严禁写在这里**。
 
 pub mod core;
+pub mod java;
+pub mod launch;
+pub mod sink;
+pub mod vanilla;

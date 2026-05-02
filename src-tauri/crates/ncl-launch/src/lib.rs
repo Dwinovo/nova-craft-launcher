@@ -6,7 +6,9 @@
 pub mod account;
 pub mod args;
 pub mod model;
+pub mod spawn;
 
 pub use account::{offline_uuid, AccountInfo};
 pub use args::{build_classpath, build_plan, flatten_args, substitute};
 pub use model::{LaunchInputs, LaunchPlan, MemorySpec};
+pub use spawn::{spawn, ProcessHandle};

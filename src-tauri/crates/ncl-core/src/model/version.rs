@@ -89,7 +89,7 @@ pub struct DownloadInfo {
 
 /// 合并 inheritsFrom 后的版本清单。所有 Sprint 1 后续逻辑（下载 / 启动参数构建）
 /// 都消费这个结构。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResolvedManifest {
     pub id: String,
     pub kind: VersionType,
