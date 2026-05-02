@@ -215,9 +215,27 @@ export function onProgress(handler: (ev: ProgressEvent) => void): Promise<Unlist
   return listen<ProgressEvent>("ncl://progress", (ev) => handler(ev.payload));
 }
 
+export type CrashCategory =
+  | "out_of_memory"
+  | "no_class_def"
+  | "module_resolution"
+  | "mixin"
+  | "native_crash"
+  | "gpu_driver"
+  | "unknown";
+
+export interface CrashReport {
+  filePath: string;
+  timestamp: string | null;
+  description: string | null;
+  headLines: string[];
+  category: CrashCategory;
+}
+
 export interface ProcessExitEvent {
   pid: number;
   exit_code: number | null;
+  crash_report: CrashReport | null;
 }
 
 export function onProcessExit(

@@ -87,14 +87,25 @@ pub async fn launch_run(
     let sink = Arc::new(TauriEventSink::new(app.clone()));
     let handle = spawn(plan, sink).await.map_err(|e| format!("spawn: {e}"))?;
     let pid = handle.pid;
+    let game_dir = paths.game_dir.clone();
 
-    // 后台等待退出 + 上抛 process_exit
+    // 后台等待退出 + 异常时收集 crash report 并上抛 process_exit
     let app_clone = app.clone();
     tokio::spawn(async move {
         let exit = handle.wait().await;
+        let exit_code: Option<i32> = exit.unwrap_or(None);
+
+        // 仅在异常退出时收集 crash report (zero exit 也读会触发误报)
+        let crash_report = if !matches!(exit_code, Some(0)) {
+            ncl_launch::collect_latest_crash(&game_dir)
+        } else {
+            None
+        };
+
         let payload = serde_json::json!({
             "pid": pid,
-            "exit_code": exit.unwrap_or(None),
+            "exit_code": exit_code,
+            "crash_report": crash_report,
         });
         if let Err(e) = app_clone.emit("ncl://process_exit", payload) {
             tracing::warn!(?e, "failed to emit ncl://process_exit");

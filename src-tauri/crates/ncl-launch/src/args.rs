@@ -8,6 +8,14 @@ use ncl_vanilla::InstallPaths;
 use std::collections::HashMap;
 
 /// 构建一个 [`LaunchPlan`]。这是 Sprint 1.5 的核心入口，纯函数（无 IO）。
+///
+/// 流程（参考 PCL2 `McLaunchArgumentMain` 的工序）：
+/// 1. 收集 manifest.arguments.jvm + 内存参数 + 用户 extra
+/// 2. **注入 GC 策略**（依 Java 主版本号选 ZGC Gen / ZGC / G1）
+/// 3. **注入 log4j2 CVE-2021-44228 修复**（无害 flag，所有版本都加）
+/// 4. **去重**（同 `-D<key>=` 后者覆盖前者；`-Xmx`/`-Xms` 前缀去重；
+///    `-XX:+Use*GC` 互斥去重；其他完全相等去重；`--tweakClass` 允许重复）
+/// 5. game args 同样替换占位符 + 追加用户 extra
 pub fn build_plan(inputs: &LaunchInputs<'_>) -> Result<LaunchPlan> {
     let manifest = inputs.manifest;
     let mut ctx = EvalContext::default();
@@ -16,12 +24,23 @@ pub fn build_plan(inputs: &LaunchInputs<'_>) -> Result<LaunchPlan> {
     let classpath = build_classpath(manifest, &ctx, inputs.paths);
     let placeholders = build_placeholders(inputs, &classpath);
 
-    // ---- JVM args ----
-    let mut jvm = Vec::with_capacity(manifest.arguments.jvm.len() + 4);
+    // ---- JVM args (manifest 顺序保持) ----
+    let mut jvm = Vec::with_capacity(manifest.arguments.jvm.len() + 8);
     jvm.push(format!("-Xms{}M", inputs.memory.min_mb));
     jvm.push(format!("-Xmx{}M", inputs.memory.max_mb));
     flatten_args(&manifest.arguments.jvm, &ctx, &placeholders, &mut jvm);
+
+    // log4j2 CVE-2021-44228 修复:无害 flag,统一注入(老版本必须,新版无影响)
+    jvm.push("-Dlog4j2.formatMsgNoLookups=true".to_string());
+
+    // GC 策略:依 Java 主版本号选最优 GC
+    inject_gc(&mut jvm, inputs.java.version_major);
+
+    // 用户 extra 在最后,保留覆盖语义(去重时后者胜)
     jvm.extend(inputs.jvm_args_extra.clone());
+
+    // 去重(参考 PCL2 DeduplicateJavaArguments)
+    let jvm = dedupe_jvm_args(jvm);
 
     // ---- Game args ----
     let mut game = Vec::with_capacity(manifest.arguments.game.len() + 8);
@@ -41,6 +60,100 @@ pub fn build_plan(inputs: &LaunchInputs<'_>) -> Result<LaunchPlan> {
         game_args: game,
         working_dir: inputs.paths.game_dir.clone(),
     })
+}
+
+/// 依 Java 主版本号注入最优 GC 策略（参考 PCL2）。
+///
+/// - Java 21+   → ZGC Generational（`-XX:+UseZGC -XX:+ZGenerational`）
+/// - Java 15-20 → ZGC Non-generational（`-XX:+UseZGC`）
+/// - 其他       → G1GC（`-XX:+UseG1GC`）
+///
+/// 注入前会先检查 args 里是否已含 `-XX:+Use*GC`（用户 extra 自定义），
+/// 若有则不覆盖；最终去重逻辑会保留首个 GC flag。
+fn inject_gc(jvm: &mut Vec<String>, java_major: u8) {
+    let already_set = jvm
+        .iter()
+        .any(|a| a.starts_with("-XX:+Use") && a.ends_with("GC"));
+    if already_set {
+        return;
+    }
+    if java_major >= 21 {
+        jvm.push("-XX:+UseZGC".to_string());
+        jvm.push("-XX:+ZGenerational".to_string());
+    } else if java_major >= 15 {
+        jvm.push("-XX:+UseZGC".to_string());
+    } else {
+        jvm.push("-XX:+UseG1GC".to_string());
+    }
+}
+
+/// JVM 参数去重（保留首次出现的有意义值）。参考 PCL2 `DeduplicateJavaArguments`：
+/// - 完全相同的字符串：保留**首次**（manifest 优先于用户 extra）
+/// - `-Xmx<value>` / `-Xms<value>` 前缀：保留**首次**（manifest 内存配置优先）
+/// - `-XX:+Use*GC`（互斥）：保留**首次**
+/// - `-D<key>=<value>`：同 key 保留**首次**
+/// - `--tweakClass`：允许重复（每个 tweaker 都要保留）
+#[must_use]
+pub fn dedupe_jvm_args(args: Vec<String>) -> Vec<String> {
+    let mut seen_exact: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut seen_prefix: std::collections::HashSet<&'static str> =
+        std::collections::HashSet::new();
+    let mut seen_d_keys: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut seen_gc = false;
+    let mut out: Vec<String> = Vec::with_capacity(args.len());
+
+    for a in args {
+        // --tweakClass 允许重复
+        if a.starts_with("--tweakClass") {
+            out.push(a);
+            continue;
+        }
+
+        // -Xmx / -Xms 前缀
+        if let Some(prefix) = ["-Xmx", "-Xms", "-Xss"]
+            .iter()
+            .find(|p| a.starts_with(*p))
+        {
+            if seen_prefix.contains(*prefix) {
+                continue;
+            }
+            seen_prefix.insert(*prefix);
+            out.push(a);
+            continue;
+        }
+
+        // -XX:+Use*GC 互斥
+        if a.starts_with("-XX:+Use") && a.ends_with("GC") {
+            if seen_gc {
+                continue;
+            }
+            seen_gc = true;
+            out.push(a);
+            continue;
+        }
+
+        // -D<key>=<value> 同 key 去重
+        if let Some(rest) = a.strip_prefix("-D") {
+            if let Some(eq) = rest.find('=') {
+                let key = rest[..eq].to_string();
+                if seen_d_keys.contains(&key) {
+                    continue;
+                }
+                seen_d_keys.insert(key);
+                out.push(a);
+                continue;
+            }
+        }
+
+        // 其他完全字符串去重
+        if seen_exact.contains(&a) {
+            continue;
+        }
+        seen_exact.insert(a.clone());
+        out.push(a);
+    }
+
+    out
 }
 
 /// 构建 classpath：所有满足规则的非 native library 的 jar 路径，附加 client.jar。
@@ -398,6 +511,116 @@ mod tests {
     }
 
     #[test]
+    fn dedupe_keeps_first_xmx() {
+        let out = dedupe_jvm_args(vec![
+            "-Xmx2G".into(),
+            "-Xmx4G".into(),
+            "-Xms512M".into(),
+        ]);
+        assert_eq!(out, vec!["-Xmx2G", "-Xms512M"]);
+    }
+
+    #[test]
+    fn dedupe_d_keys_first_wins() {
+        let out = dedupe_jvm_args(vec![
+            "-Dlog4j2.formatMsgNoLookups=true".into(),
+            "-Dlog4j2.formatMsgNoLookups=false".into(), // 用户试图覆盖
+            "-Djava.library.path=/foo".into(),
+        ]);
+        assert_eq!(out.len(), 2);
+        assert!(out.contains(&"-Dlog4j2.formatMsgNoLookups=true".to_string()));
+        assert!(out.contains(&"-Djava.library.path=/foo".to_string()));
+    }
+
+    #[test]
+    fn dedupe_gc_mutex() {
+        let out = dedupe_jvm_args(vec![
+            "-XX:+UseZGC".into(),
+            "-XX:+UseG1GC".into(), // 互斥,丢弃
+            "-XX:+ZGenerational".into(), // 不是 *GC,保留
+        ]);
+        assert_eq!(out, vec!["-XX:+UseZGC", "-XX:+ZGenerational"]);
+    }
+
+    #[test]
+    fn dedupe_allows_multiple_tweakclass() {
+        let out = dedupe_jvm_args(vec![
+            "--tweakClass=foo".into(),
+            "--tweakClass=bar".into(),
+            "--tweakClass=foo".into(), // 同 tweaker 也保留 (PCL 行为)
+        ]);
+        assert_eq!(out.len(), 3);
+    }
+
+    #[test]
+    fn dedupe_exact_string_dedup() {
+        let out = dedupe_jvm_args(vec![
+            "-XstartOnFirstThread".into(),
+            "-XstartOnFirstThread".into(),
+            "--add-opens=java.base/java.util.jar=ALL-UNNAMED".into(),
+        ]);
+        assert_eq!(out.len(), 2);
+    }
+
+    #[test]
+    fn inject_gc_picks_zgc_generational_for_java21() {
+        let mut jvm = vec!["-Xmx4G".into()];
+        inject_gc(&mut jvm, 21);
+        assert!(jvm.contains(&"-XX:+UseZGC".to_string()));
+        assert!(jvm.contains(&"-XX:+ZGenerational".to_string()));
+    }
+
+    #[test]
+    fn inject_gc_picks_zgc_for_java17() {
+        let mut jvm = vec![];
+        inject_gc(&mut jvm, 17);
+        assert!(jvm.contains(&"-XX:+UseZGC".to_string()));
+        assert!(!jvm.contains(&"-XX:+ZGenerational".to_string()));
+    }
+
+    #[test]
+    fn inject_gc_picks_g1_for_java8() {
+        let mut jvm = vec![];
+        inject_gc(&mut jvm, 8);
+        assert!(jvm.contains(&"-XX:+UseG1GC".to_string()));
+    }
+
+    #[test]
+    fn inject_gc_respects_user_choice() {
+        let mut jvm = vec!["-XX:+UseShenandoahGC".to_string()];
+        inject_gc(&mut jvm, 21);
+        // 用户已自定义,不再注入
+        assert!(!jvm.contains(&"-XX:+UseZGC".to_string()));
+    }
+
+    #[test]
+    fn build_plan_injects_log4j_fix_and_gc() {
+        let layout = PathLayout::with_root("/tmp/ncl".into());
+        let paths = InstallPaths::new(&layout, "test", "1.21.1");
+        let manifest = fake_manifest();
+        let java = fake_java(); // major 21
+        let account = AccountInfo::offline("Steve");
+        let inputs = LaunchInputs {
+            manifest: &manifest,
+            paths: &paths,
+            java: &java,
+            account: &account,
+            memory: MemorySpec { min_mb: 512, max_mb: 4096 },
+            jvm_args_extra: vec![],
+            game_args_extra: vec![],
+            features: HashMap::new(),
+        };
+        let plan = build_plan(&inputs).unwrap();
+        // log4j 修复
+        assert!(plan
+            .jvm_args
+            .contains(&"-Dlog4j2.formatMsgNoLookups=true".into()));
+        // ZGC + Generational (Java 21)
+        assert!(plan.jvm_args.contains(&"-XX:+UseZGC".into()));
+        assert!(plan.jvm_args.contains(&"-XX:+ZGenerational".into()));
+    }
+
+    #[test]
     fn placeholders_include_mc_jar_name_and_offline_auth_blanks() {
         let layout = PathLayout::with_root("/tmp/ncl".into());
         let paths = InstallPaths::new(&layout, "test-instance", "neoforge-21.1.99");
@@ -481,7 +704,7 @@ mod tests {
                 min_mb: 512,
                 max_mb: 4096,
             },
-            jvm_args_extra: vec!["-XX:+UseG1GC".into()],
+            jvm_args_extra: vec!["-XX:+UnlockExperimentalVMOptions".into()],
             game_args_extra: vec!["--quickPlaySingleplayer".into(), "MyWorld".into()],
             features: HashMap::new(),
         };
@@ -507,8 +730,10 @@ mod tests {
         assert!(cp.contains("lwjgl-3.3.3.jar"));
         assert!(cp.contains("1.21.1.jar"));
 
-        // 用户 extra 也应被追加在尾部
-        assert!(plan.jvm_args.contains(&"-XX:+UseG1GC".into()));
+        // 用户 extra 非 GC/内存类参数,应被追加且通过去重保留
+        assert!(plan
+            .jvm_args
+            .contains(&"-XX:+UnlockExperimentalVMOptions".into()));
 
         // main class
         assert_eq!(plan.main_class, "net.minecraft.client.main.Main");

@@ -109,14 +109,44 @@ export function InstancesPage() {
       }
     }).then((u) => (unlistenProgress = u));
     onProcessExit((ev) => {
-      setLogs((l) => [
-        ...l,
+      const lines: LogLine[] = [
         {
           source: "process",
-          level: "info",
+          level: ev.exit_code === 0 ? "info" : "error",
           message: `进程 ${ev.pid} 退出，code=${ev.exit_code ?? "(signal)"}`,
         },
-      ]);
+      ];
+      if (ev.crash_report) {
+        const cat = ev.crash_report.category;
+        const catLabel: Record<string, string> = {
+          out_of_memory: "💥 内存不足 (OOM)",
+          no_class_def: "💥 ClassNotFound — 缺库或版本不匹配",
+          module_resolution: "💥 Java 模块系统冲突",
+          mixin: "💥 Mixin 失败 — 通常是 mod 兼容问题",
+          native_crash: "💥 JVM/native 崩溃",
+          gpu_driver: "💥 GPU 驱动 / OpenGL 问题",
+          unknown: "💥 崩溃",
+        };
+        lines.push({
+          source: "crash",
+          level: "error",
+          message: `${catLabel[cat]} · ${ev.crash_report.filePath}`,
+        });
+        if (ev.crash_report.description) {
+          lines.push({
+            source: "crash",
+            level: "error",
+            message: `Description: ${ev.crash_report.description}`,
+          });
+        }
+        // 头几行 stack trace
+        ev.crash_report.headLines.slice(0, 12).forEach((line) => {
+          if (line.trim()) {
+            lines.push({ source: "crash", level: "warn", message: line });
+          }
+        });
+      }
+      setLogs((l) => [...l, ...lines]);
       setProcessPid(null);
     }).then((u) => (unlistenExit = u));
     return () => {
