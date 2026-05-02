@@ -20,6 +20,23 @@ export async function getPaths(): Promise<PathInfo> {
   return invoke<PathInfo>("core_get_paths");
 }
 
+// ────────── App config ──────────
+export type MirrorPolicy = "auto" | "official" | "bmclapi";
+
+export interface AppConfig {
+  mirror_policy: MirrorPolicy;
+  max_concurrent_downloads: number;
+  ui_locale: string;
+}
+
+export async function getConfig(): Promise<AppConfig> {
+  return invoke<AppConfig>("core_get_config");
+}
+
+export async function setConfig(config: AppConfig): Promise<void> {
+  return invoke("core_set_config", { config });
+}
+
 // ────────── Vanilla versions / install ──────────
 export type VersionKind = "release" | "snapshot" | "old_beta" | "old_alpha";
 

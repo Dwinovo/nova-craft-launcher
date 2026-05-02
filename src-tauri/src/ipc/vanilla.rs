@@ -3,7 +3,8 @@
 use crate::ipc::sink::TauriEventSink;
 use crate::AppState;
 use ncl_core::model::VersionListEntry;
-use ncl_net::Downloader;
+use ncl_core::MirrorPolicy;
+use ncl_net::{BmclApiSource, Downloader, MirrorPool, OfficialSource, ResilientDownloader};
 use ncl_vanilla::{
     default_client, fetch_version_detail, fetch_version_list, install, resolve_inherits,
     InstallPaths,
@@ -50,11 +51,17 @@ pub struct VersionListResponse {
 /// 拉取 Mojang 版本清单。`release_only=true` 时只返回 type=release。
 #[tauri::command]
 pub async fn vanilla_list_versions(
+    state: State<'_, AppState>,
     release_only: Option<bool>,
 ) -> Result<VersionListResponse, String> {
     let release_only = release_only.unwrap_or(true);
+    let policy = state.config.read().await.mirror_policy;
+    let pool = build_pool(policy);
+
     let client = default_client().map_err(|e| e.to_string())?;
-    let list = fetch_version_list(&client).await.map_err(|e| e.to_string())?;
+    let list = fetch_version_list(&client, Some(&pool))
+        .await
+        .map_err(|e| e.to_string())?;
     let versions: Vec<VersionEntry> = list
         .versions
         .iter()
@@ -81,12 +88,15 @@ pub async fn vanilla_install(
 ) -> Result<String, String> {
     let task_id = uuid::Uuid::new_v4().to_string();
     let layout = state.layout.clone();
-    let concurrency = state.config.read().await.max_concurrent_downloads;
+    let cfg = state.config.read().await;
+    let concurrency = cfg.max_concurrent_downloads;
+    let policy = cfg.mirror_policy;
+    drop(cfg);
 
     let app_clone = app.clone();
     tokio::spawn(async move {
         let sink = Arc::new(TauriEventSink::new(app_clone.clone()));
-        match run_install(layout, instance_name, version_id, sink.clone(), concurrency).await {
+        match run_install(layout, policy, instance_name, version_id, sink, concurrency).await {
             Ok(()) => tracing::info!("vanilla install finished"),
             Err(e) => tracing::error!(%e, "vanilla install failed"),
         }
@@ -97,13 +107,16 @@ pub async fn vanilla_install(
 
 async fn run_install(
     layout: ncl_core::PathLayout,
+    policy: MirrorPolicy,
     instance_name: String,
     version_id: String,
     sink: Arc<dyn ncl_core::progress::ProgressSink>,
     concurrency: usize,
 ) -> ncl_core::Result<()> {
+    let pool = Arc::new(build_pool(policy));
     let client = default_client()?;
-    let list = fetch_version_list(&client).await?;
+
+    let list = fetch_version_list(&client, Some(&pool)).await?;
     let entry = list
         .versions
         .iter()
@@ -111,10 +124,26 @@ async fn run_install(
         .ok_or_else(|| {
             ncl_core::Error::NotFound(format!("version '{version_id}' not in manifest"))
         })?;
-    let raw = fetch_version_detail(&client, &entry.url).await?;
-    let resolved = resolve_inherits(&client, raw, &list).await?;
+    let raw = fetch_version_detail(&client, Some(&pool), &entry.url).await?;
+    let resolved = resolve_inherits(&client, Some(&pool), raw, &list).await?;
 
-    let downloader = Arc::new(Downloader::new()?);
+    let downloader = Arc::new(ResilientDownloader::new(
+        Downloader::new()?,
+        pool.clone(),
+        4, // 最多跨镜像重试 4 次
+    ));
     let paths = InstallPaths::new(&layout, &instance_name, &resolved.id);
     install(&resolved, &paths, downloader, sink, concurrency).await
+}
+
+/// 根据 [`MirrorPolicy`] 构建一个 [`MirrorPool`]。`Auto` / `Bmclapi` 都把
+/// `OfficialSource` 留作兜底（避免 BMCLAPI 不接管的 URL 漏掉）。
+fn build_pool(policy: MirrorPolicy) -> MirrorPool {
+    match policy {
+        MirrorPolicy::Auto | MirrorPolicy::Bmclapi => MirrorPool::new(vec![
+            Arc::new(BmclApiSource),
+            Arc::new(OfficialSource),
+        ]),
+        MirrorPolicy::Official => MirrorPool::new(vec![Arc::new(OfficialSource)]),
+    }
 }

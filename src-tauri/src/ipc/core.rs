@@ -1,5 +1,5 @@
 use crate::AppState;
-use ncl_core::PathMode;
+use ncl_core::{AppConfig, PathMode};
 use serde::Serialize;
 use tauri::State;
 
@@ -32,4 +32,23 @@ pub fn core_get_paths(state: State<'_, AppState>) -> Result<PathInfo, String> {
         logs: layout.logs().display().to_string(),
         cache: layout.cache().display().to_string(),
     })
+}
+
+/// 读取当前应用配置（镜像策略 / 并发 / 语言）。
+#[tauri::command]
+pub async fn core_get_config(state: State<'_, AppState>) -> Result<AppConfig, String> {
+    Ok(state.config.read().await.clone())
+}
+
+/// 更新应用配置并持久化到 `config.json`。
+#[tauri::command]
+pub async fn core_set_config(
+    state: State<'_, AppState>,
+    config: AppConfig,
+) -> Result<(), String> {
+    config
+        .save(&state.layout.config_file())
+        .map_err(|e| format!("save config: {e}"))?;
+    *state.config.write().await = config;
+    Ok(())
 }

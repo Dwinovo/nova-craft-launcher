@@ -37,6 +37,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             ipc::core::core_get_paths,
+            ipc::core::core_get_config,
+            ipc::core::core_set_config,
             ipc::vanilla::vanilla_list_versions,
             ipc::vanilla::vanilla_install,
             ipc::java::java_scan,

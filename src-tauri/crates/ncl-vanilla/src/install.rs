@@ -20,16 +20,19 @@ use async_trait::async_trait;
 use ncl_core::model::{AssetIndex, EvalContext, ResolvedManifest};
 use ncl_core::progress::ProgressSink;
 use ncl_core::{Error, Result};
-use ncl_net::Downloader;
+use ncl_net::ResilientDownloader;
 use ncl_task::{Pipeline, Stage, Task};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 /// 执行完整安装。前置：调用方已通过 `manifest::resolve_inherits` 拿到合并后的 manifest。
+///
+/// `downloader` 通常注入一个 `ResilientDownloader`（带 BMCLAPI 镜像池 + 重试 +
+/// 指数退避）；测试场景可手动构造。
 pub async fn install(
     resolved: &ResolvedManifest,
     paths: &InstallPaths,
-    downloader: Arc<Downloader>,
+    downloader: Arc<ResilientDownloader>,
     sink: Arc<dyn ProgressSink>,
     concurrency: usize,
 ) -> Result<()> {
@@ -149,7 +152,7 @@ struct DownloadTask {
     target: PathBuf,
     sha1: Option<String>,
     weight: u64,
-    downloader: Arc<Downloader>,
+    downloader: Arc<ResilientDownloader>,
 }
 
 #[async_trait]
