@@ -55,20 +55,32 @@ pub fn library_artifacts(
         .as_ref()
         .and_then(|d| d.artifact.as_ref())
     {
-        let kind = if is_new_native {
-            ArtifactKind::Native {
-                excludes: excludes.clone(),
-            }
+        // 空 URL 通常是 Forge/NeoForge installer 的 processor 产物
+        // (forge:<ver>:client / :server / :slim / :srg 等):version.json 里
+        // 列出 path + sha1 + size 但 url 为空,因为文件由 binarypatcher /
+        // jarsplitter 等 processor 阶段生成。这里跳过下载,留给 processor 阶段。
+        if artifact.url.is_empty() {
+            tracing::debug!(
+                name = %library.name,
+                path = %artifact.path,
+                "library has empty url; skipping download (processor will produce it)"
+            );
         } else {
-            ArtifactKind::Library
-        };
-        out.push(LibraryArtifact {
-            url: artifact.url.clone(),
-            target: libraries_root.join(&artifact.path),
-            sha1: artifact.sha1.clone(),
-            size: artifact.size,
-            kind,
-        });
+            let kind = if is_new_native {
+                ArtifactKind::Native {
+                    excludes: excludes.clone(),
+                }
+            } else {
+                ArtifactKind::Library
+            };
+            out.push(LibraryArtifact {
+                url: artifact.url.clone(),
+                target: libraries_root.join(&artifact.path),
+                sha1: artifact.sha1.clone(),
+                size: artifact.size,
+                kind,
+            });
+        }
     }
 
     // 旧格式 natives：通过 natives map + classifiers 选择

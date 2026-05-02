@@ -394,6 +394,15 @@ async fn download_profile_libraries(
     for lib in libs {
         if let Some(downloads) = &lib.downloads {
             if let Some(art) = &downloads.artifact {
+                // 同 vanilla::library_artifacts:空 URL 是 processor 产物占位
+                if art.url.is_empty() {
+                    tracing::debug!(
+                        name = %lib.name,
+                        path = %art.path,
+                        "install_profile library has empty url; skipped"
+                    );
+                    continue;
+                }
                 let target = libraries_root.join(&art.path);
                 downloader.fetch(&art.url, &target, Some(&art.sha1)).await?;
             }
